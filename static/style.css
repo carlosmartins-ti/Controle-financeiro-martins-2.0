@@ -415,3 +415,83 @@
     border-color: #dbe3ee !important;
   }
 }
+/* =========================================================
+   CORREÇÃO MOBILE - CAMPOS DE DATA / INPUTS NO CARD
+========================================================= */
+
+@media (max-width: 960px) {
+  .grid-form input,
+  .grid-form select,
+  .simple-form input,
+  .simple-form select,
+  .edit-form input,
+  .edit-form select {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    height: 46px !important;
+    min-height: 46px !important;
+    padding: 0 14px !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+  }
+
+  .grid-form input[type="date"],
+  .simple-form input[type="date"],
+  .edit-form input[type="date"] {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    display: block !important;
+    line-height: 46px !important;
+    text-align: left !important;
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+
+  .grid-form input[type="date"]::-webkit-date-and-time-value,
+  .simple-form input[type="date"]::-webkit-date-and-time-value,
+  .edit-form input[type="date"]::-webkit-date-and-time-value {
+    text-align: left !important;
+    min-height: 46px !important;
+    line-height: 46px !important;
+  }
+
+  .grid-form input[type="date"]::-webkit-calendar-picker-indicator,
+  .simple-form input[type="date"]::-webkit-calendar-picker-indicator,
+  .edit-form input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: .75 !important;
+  }
+
+  .grid-form label,
+  .simple-form label,
+  .edit-form label {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+}
+
+/* dark mobile específico */
+@media (max-width: 960px) and (prefers-color-scheme: dark) {
+  .grid-form input[type="date"],
+  .simple-form input[type="date"],
+  .edit-form input[type="date"] {
+    background: #111827 !important;
+    color: #f8fafc !important;
+    border-color: rgba(255,255,255,.12) !important;
+    color-scheme: dark !important;
+  }
+}
+
+/* light mobile específico */
+@media (max-width: 960px) and (prefers-color-scheme: light) {
+  .grid-form input[type="date"],
+  .simple-form input[type="date"],
+  .edit-form input[type="date"] {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    border-color: #dbe3ee !important;
+    color-scheme: light !important;
+  }
+}
