@@ -263,3 +263,155 @@
     width: 88%;
   }
 }
+/* =========================================================
+   MOBILE - SEGUIR TEMA DO SISTEMA DO CELULAR
+   PC CONTINUA COMO ESTÁ
+========================================================= */
+
+/* MOBILE EM MODO ESCURO */
+@media (max-width: 960px) and (prefers-color-scheme: dark) {
+  .app-body {
+    background: #080e1c !important;
+    color: #e5e7eb !important;
+  }
+
+  .content {
+    background: #080e1c !important;
+    color: #e5e7eb !important;
+  }
+
+  .sidebar {
+    background: #080e1c !important;
+  }
+
+  .topbar h1,
+  .panel-head h2,
+  .expense-top h3,
+  .category-item span,
+  .add-box summary {
+    color: #f8fafc !important;
+  }
+
+  .topbar p,
+  .panel-head p,
+  .metric-card span,
+  .expense-top p,
+  .expense-middle span,
+  .user-box span,
+  .brand-mini span {
+    color: #94a3b8 !important;
+  }
+
+  .metric-card,
+  .panel,
+  .add-box,
+  .category-item {
+    background: #0b1220 !important;
+    border-color: rgba(255,255,255,.09) !important;
+    box-shadow: none !important;
+  }
+
+  .metric-card strong {
+    color: #ffffff !important;
+  }
+
+  .simple-form input,
+  .simple-form select,
+  .grid-form input,
+  .grid-form select,
+  .edit-form input,
+  .edit-form select,
+  .period-form select {
+    background: #111827 !important;
+    color: #f8fafc !important;
+    border-color: rgba(255,255,255,.12) !important;
+  }
+
+  .simple-form label,
+  .grid-form label,
+  .edit-form label,
+  .period-form label {
+    color: #94a3b8 !important;
+  }
+
+  input::placeholder {
+    color: #64748b !important;
+  }
+
+  .empty {
+    background: rgba(255,255,255,.04) !important;
+    color: #94a3b8 !important;
+  }
+
+  .alert.success {
+    background: rgba(16,185,129,.12) !important;
+    color: #7cf0bf !important;
+    border-color: rgba(16,185,129,.35) !important;
+  }
+
+  .alert.error {
+    background: rgba(239,68,68,.12) !important;
+    color: #fecaca !important;
+    border-color: rgba(239,68,68,.35) !important;
+  }
+
+  .chart-card {
+    background: #0b1220 !important;
+    border-color: rgba(255,255,255,.09) !important;
+    box-shadow: none !important;
+  }
+
+  .invoice-card,
+  .expense-card {
+    background: linear-gradient(135deg,#0b1220,#172033) !important;
+  }
+
+  .logout {
+    background: rgba(255,255,255,.07) !important;
+    color: #cbd5e1 !important;
+  }
+}
+
+/* MOBILE EM MODO CLARO */
+@media (max-width: 960px) and (prefers-color-scheme: light) {
+  .app-body {
+    background: #f5f7fb !important;
+    color: #0f172a !important;
+  }
+
+  .content {
+    background: #f5f7fb !important;
+  }
+
+  .metric-card,
+  .panel,
+  .add-box,
+  .category-item,
+  .chart-card {
+    background: #ffffff !important;
+    border-color: #e6edf5 !important;
+  }
+
+  .topbar h1,
+  .panel-head h2,
+  .metric-card strong {
+    color: #07142d !important;
+  }
+
+  .topbar p,
+  .panel-head p,
+  .metric-card span {
+    color: #64748b !important;
+  }
+
+  .simple-form input,
+  .simple-form select,
+  .grid-form input,
+  .grid-form select,
+  .edit-form input,
+  .edit-form select {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    border-color: #dbe3ee !important;
+  }
+}
