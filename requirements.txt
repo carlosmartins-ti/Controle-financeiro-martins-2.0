@@ -1,0 +1,9 @@
+streamlit
+bcrypt
+pandas
+openpyxl
+plotly
+reportlab
+psycopg2-binary
+python-telegram-bot==20.7
+

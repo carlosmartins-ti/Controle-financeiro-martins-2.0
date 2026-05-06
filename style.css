@@ -1,0 +1,230 @@
+/* Streamlit inject */
+.block-container { padding-top: 1.2rem; padding-bottom: 2rem; }
+[data-testid="stSidebar"] { width: 290px; }
+.kpi-card {
+    padding: 14px 16px;
+    border: 1px solid rgba(49,51,63,0.2);
+    border-radius: 14px;
+    background: rgba(255,255,255,0.03);
+}
+/* ===================== MOBILE + DARK/LIGHT FIX ===================== */
+@media (max-width: 768px) {
+
+  /* respeita notch / status bar */
+  .block-container {
+    padding-top: calc(env(safe-area-inset-top) + 1rem) !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    padding-bottom: 2rem !important;
+  }
+
+  /* título principal */
+  h1, h2 {
+    font-size: 1.6rem !important;
+    line-height: 1.25 !important;
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  /* tabs */
+  button[data-baseweb="tab"] {
+    font-size: 0.9rem !important;
+    padding: 6px 10px !important;
+  }
+
+  /* inputs */
+  input, textarea {
+    font-size: 0.95rem !important;
+  }
+
+  /* botões */
+  button {
+    width: 100% !important;
+  }
+}
+
+/* ===================== CARD DE AUTENTICAÇÃO ===================== */
+
+/* estrutura base */
+.auth-box {
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 1rem;
+}
+
+/* LIGHT MODE */
+[data-theme="light"] .auth-box {
+  background-color: #f0f2f6;
+  color: #000000;
+  border-left: 5px solid #4f8bf9;
+}
+
+/* DARK MODE */
+[data-theme="dark"] .auth-box {
+  background-color: #1e1e1e;
+  color: #eaeaea;
+  border-left: 5px solid #4f8bf9;
+}
+
+/* link do email */
+.auth-box a {
+  color: #4f8bf9;
+  text-decoration: none;
+}
+/* ===================== CARD PREMIUM ===================== */
+
+.card-despesa {
+    background: linear-gradient(135deg, #0b1220, #172033);
+    border-radius: 18px;
+    padding: 22px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    color: #f1f5f9;
+}
+
+.card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
+}
+
+.card-titulo {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.card-categoria {
+    display: inline-block;
+    padding: 6px 12px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
+    font-size: 13px;
+}
+
+.card-middle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-valor {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.card-data {
+    font-size: 14px;
+    opacity: 0.7;
+}
+
+.card-divider {
+    height: 1px;
+    background: rgba(255,255,255,0.08);
+    margin: 18px 0;
+}
+
+/* Badge */
+
+.badge-pago {
+    background: #16a34a;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.badge-aberto {
+    background: #dc2626;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+}
+/* ===================== BOTÕES DO CARD ===================== */
+
+div[data-testid="column"] button {
+    border-radius: 14px !important;
+    padding: 10px 14px !important;
+    font-weight: 500 !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    background: rgba(255,255,255,0.05) !important;
+    color: #f1f5f9 !important;
+}
+
+div[data-testid="column"] button:hover {
+    background: rgba(255,255,255,0.12) !important;
+}
+
+/* Botão excluir levemente vermelho */
+
+div[data-testid="column"]:nth-child(3) button {
+    border: 1px solid rgba(220,38,38,0.4) !important;
+    background: rgba(220,38,38,0.1) !important;
+}
+/* ===================== CARD NATIVO STREAMLIT ===================== */
+
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    border-radius: 20px !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    background: linear-gradient(135deg, #0b1220, #172033) !important;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4) !important;
+    padding: 1rem !important;
+    margin-bottom: 1rem !important;
+}
+
+/* Badge estilo texto (sem div manual) */
+
+.status-pago {
+    color: #22c55e;
+    font-weight: 600;
+}
+
+.status-aberto {
+    color: #ef4444;
+    font-weight: 600;
+}
+
+/* Botões dentro do card */
+
+div[data-testid="stVerticalBlockBorderWrapper"] button {
+    border-radius: 14px !important;
+    padding: 10px 14px !important;
+    font-weight: 500 !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    background: rgba(255,255,255,0.05) !important;
+    color: #f1f5f9 !important;
+}
+
+div[data-testid="stVerticalBlockBorderWrapper"] button:hover {
+    background: rgba(255,255,255,0.12) !important;
+}
+/* ===================== MOBILE REAL STREAMLIT ===================== */
+
+/* Quando sidebar estiver recolhida (modo mobile) */
+section[data-testid="stSidebar"][aria-expanded="false"] ~ div 
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    padding: 14px !important;
+    border-radius: 18px !important;
+}
+
+/* Título do card menor */
+div[data-testid="stVerticalBlockBorderWrapper"] h3 {
+    font-size: 1.2rem !important;
+    margin-bottom: 6px !important;
+}
+
+/* Valor mais compacto */
+div[data-testid="stVerticalBlockBorderWrapper"] h2,
+div[data-testid="stVerticalBlockBorderWrapper"] h1 {
+    font-size: 1.5rem !important;
+    margin-top: 6px !important;
+}
+
+/* Botões mais compactos */
+div[data-testid="stVerticalBlockBorderWrapper"] button {
+    padding: 8px 10px !important;
+    font-size: 0.85rem !important;
+}
