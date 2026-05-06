@@ -1262,12 +1262,11 @@ select {
    LOGIN MOBILE NOVO
 ========================================================= */
 
-@media (max-width: 768px) {
-  .gf-wrap {
-    padding: 0;
-    align-items: flex-start;
-    background: #050608;
-  }
+.gf-made {
+  display: flex;
+  justify-content: center;
+  margin-top: 22px;
+}
 
   .gf-card {
     display: block;
