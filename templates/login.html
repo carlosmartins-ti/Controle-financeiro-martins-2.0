@@ -35,9 +35,9 @@
       {% if err %}<div class="alert error">{{ err }}</div>{% endif %}
 
       <div class="tabs">
-        <button class="tab-btn {{ 'active' if tab == 'entrar' else '' }}" data-tab="entrar">Entrar</button>
-        <button class="tab-btn {{ 'active' if tab == 'criar' else '' }}" data-tab="criar">Criar conta</button>
-        <button class="tab-btn {{ 'active' if tab == 'recuperar' else '' }}" data-tab="recuperar">Recuperar senha</button>
+        <button class="tab-btn {{ 'active' if tab == 'entrar' else '' }}" data-tab="entrar">Login</button>
+        <button class="tab-btn {{ 'active' if tab == 'criar' else '' }}" data-tab="criar">Cadastro</button>
+        <button class="tab-btn {{ 'active' if tab == 'recuperar' else '' }}" data-tab="recuperar">Recuperar</button>
       </div>
 
       <form class="tab-panel {{ 'active' if tab == 'entrar' else '' }}" id="entrar" method="post" action="/login">
