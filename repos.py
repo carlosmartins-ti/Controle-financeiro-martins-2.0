@@ -488,6 +488,250 @@ def delete_credit_group(user_id, credit_group, only_open=True):
     conn.close()
 
 
+# ================= EDITAR COMPRA PARCELADA =================
+
+def _clean_installment_description(description):
+    """
+    Remove o final da descrição quando estiver assim:
+    Nome da compra (1/3)
+    Nome da compra (2/3)
+    """
+    import re
+
+    return re.sub(r"\s*\(\d+\/\d+\)\s*$", "", str(description or "")).strip()
+
+
+def _add_months_safe(dt, months_to_add):
+    """
+    Soma meses sem quebrar quando o mês não tem o mesmo dia.
+    Exemplo:
+    31/01 + 1 mês vira 28/02 ou 29/02.
+    """
+    import calendar
+
+    month = dt.month - 1 + int(months_to_add)
+    year = dt.year + month // 12
+    month = month % 12 + 1
+    day = min(dt.day, calendar.monthrange(year, month)[1])
+
+    return dt.replace(year=year, month=month, day=day)
+
+
+def update_credit_group_installments(user_id, credit_group, new_installments):
+    """
+    Atualiza a quantidade de parcelas de uma compra parcelada.
+
+    Funcionamento:
+    - Se aumentar, cria novas parcelas nos meses seguintes.
+    - Se diminuir, exclui somente parcelas futuras/em aberto.
+    - Não deixa diminuir abaixo da última parcela já paga.
+    - Atualiza o texto da descrição para (1/N), (2/N), etc.
+    """
+
+    new_installments = int(new_installments)
+
+    if new_installments < 1:
+        raise ValueError("Quantidade de parcelas inválida.")
+
+    conn = get_connection()
+    conn.autocommit = False
+    cur = conn.cursor()
+
+    try:
+        cur.execute(
+            """
+            SELECT
+                id,
+                description,
+                category_id,
+                amount,
+                purchase_date,
+                due_date,
+                month,
+                year,
+                paid,
+                installments,
+                installment_index,
+                credit_group
+            FROM payments
+            WHERE user_id = %s
+              AND credit_group = %s
+            ORDER BY installment_index ASC, due_date ASC, id ASC
+            """,
+            (user_id, credit_group)
+        )
+
+        rows = cur.fetchall()
+
+        if not rows:
+            raise ValueError("Compra parcelada não encontrada.")
+
+        rows = sorted(
+            rows,
+            key=lambda r: (
+                int(r.get("installment_index") or 999999),
+                str(r.get("due_date") or ""),
+                int(r.get("id") or 0)
+            )
+        )
+
+        paid_indexes = [
+            int(r.get("installment_index") or 0)
+            for r in rows
+            if bool(r.get("paid"))
+        ]
+
+        max_paid_index = max(paid_indexes) if paid_indexes else 0
+
+        if new_installments < max_paid_index:
+            raise ValueError(
+                f"Não é possível reduzir para {new_installments} parcelas, "
+                f"pois já existe parcela paga até a {max_paid_index}ª."
+            )
+
+        first = rows[0]
+
+        base_description = _clean_installment_description(first.get("description"))
+        category_id = first.get("category_id")
+        purchase_date = first.get("purchase_date")
+        credit_group_value = first.get("credit_group")
+        parcel_value = float(first.get("amount") or 0)
+
+        base_due = first.get("due_date")
+
+        if not base_due:
+            raise ValueError("A compra parcelada não possui data de vencimento base.")
+
+        if isinstance(base_due, str):
+            base_due = datetime.fromisoformat(base_due).date()
+
+        existing_by_index = {
+            int(r.get("installment_index") or 0): r
+            for r in rows
+            if int(r.get("installment_index") or 0) > 0
+        }
+
+        # Atualiza as parcelas que devem existir
+        for idx in range(1, new_installments + 1):
+            new_due = _add_months_safe(base_due, idx - 1)
+
+            if new_installments > 1:
+                new_description = f"{base_description} ({idx}/{new_installments})"
+            else:
+                new_description = base_description
+
+            if idx in existing_by_index:
+                r = existing_by_index[idx]
+
+                cur.execute(
+                    """
+                    UPDATE payments
+                    SET description = %s,
+                        due_date = %s,
+                        month = %s,
+                        year = %s,
+                        installments = %s,
+                        installment_index = %s,
+                        is_credit = %s
+                    WHERE id = %s
+                      AND user_id = %s
+                    """,
+                    (
+                        new_description,
+                        new_due,
+                        new_due.month,
+                        new_due.year,
+                        new_installments,
+                        idx,
+                        True if new_installments > 1 else False,
+                        r.get("id"),
+                        user_id
+                    )
+                )
+
+            else:
+                cur.execute(
+                    """
+                    INSERT INTO payments (
+                        user_id,
+                        description,
+                        category_id,
+                        amount,
+                        purchase_date,
+                        due_date,
+                        month,
+                        year,
+                        paid,
+                        paid_date,
+                        created_at,
+                        is_credit,
+                        installments,
+                        installment_index,
+                        credit_group
+                    )
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW(),%s,%s,%s,%s)
+                    """,
+                    (
+                        user_id,
+                        new_description,
+                        category_id,
+                        parcel_value,
+                        purchase_date,
+                        new_due,
+                        new_due.month,
+                        new_due.year,
+                        False,
+                        None,
+                        True if new_installments > 1 else False,
+                        new_installments,
+                        idx,
+                        credit_group_value
+                    )
+                )
+
+        # Remove parcelas acima do novo limite, mas somente se estiverem em aberto
+        cur.execute(
+            """
+            DELETE FROM payments
+            WHERE user_id = %s
+              AND credit_group = %s
+              AND installment_index > %s
+              AND paid = FALSE
+            """,
+            (user_id, credit_group, new_installments)
+        )
+
+        # Segurança: se existir parcela paga acima do novo limite, bloqueia
+        cur.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM payments
+            WHERE user_id = %s
+              AND credit_group = %s
+              AND installment_index > %s
+              AND paid = TRUE
+            """,
+            (user_id, credit_group, new_installments)
+        )
+
+        check = cur.fetchone()
+
+        if check and int(check.get("total") or 0) > 0:
+            raise ValueError(
+                "Não foi possível reduzir: existem parcelas pagas acima do novo limite."
+            )
+
+        conn.commit()
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        cur.close()
+        conn.close()
+
+
 # ================= RELATÓRIO DE DESPESAS =================
 
 def get_expenses_report(user_id, month, year):
