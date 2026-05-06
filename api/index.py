@@ -10,7 +10,17 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
 from database import init_db, get_connection
-from auth import authenticate, create_user, get_security_question, reset_password
+from auth import (
+    authenticate,
+    authenticate_full,
+    create_user,
+    get_security_question,
+    reset_password,
+    admin_list_users,
+    admin_create_user,
+    admin_delete_user,
+    admin_reset_password
+)
 import repos
 from export_utils import export_pdf_bytes, export_excel_bytes
 
@@ -67,9 +77,17 @@ def parse_bool(value):
 def current_user(request: Request):
     uid = request.session.get("user_id")
     username = request.session.get("username")
+    is_superuser = request.session.get("is_superuser", False)
+
     if not uid or not username:
         return None
-    return {"id": int(uid), "username": username, "is_admin": username == ADMIN_USERNAME}
+
+    return {
+        "id": int(uid),
+        "username": username,
+        "is_admin": username == ADMIN_USERNAME,
+        "is_superuser": bool(is_superuser)
+    }
 
 
 def require_login(request: Request):
@@ -77,6 +95,18 @@ def require_login(request: Request):
     if not user:
         return None
     repos.seed_default_categories(user["id"])
+    return user
+
+
+def require_superuser(request: Request):
+    user = current_user(request)
+
+    if not user:
+        return None
+
+    if not bool(user.get("is_superuser")):
+        return None
+
     return user
 
 
@@ -125,8 +155,13 @@ def startup():
 
 @app.get("/")
 def login_page(request: Request):
-    if current_user(request):
+    user = current_user(request)
+
+    if user:
+        if bool(user.get("is_superuser")):
+            return redirect("/admin/usuarios")
         return redirect("/dashboard")
+
     return templates.TemplateResponse(
         request,
         "login.html",
@@ -142,12 +177,20 @@ def login_page(request: Request):
 
 @app.post("/login")
 def login(request: Request, username: str = Form(""), password: str = Form("")):
-    uid = authenticate(username, password)
-    if not uid:
+    user = authenticate_full(username, password)
+
+    if not user:
         return redirect("/?err=Usuário ou senha inválidos.")
-    request.session["user_id"] = int(uid)
-    request.session["username"] = username.strip().lower()
-    repos.seed_default_categories(int(uid))
+
+    request.session["user_id"] = int(user["id"])
+    request.session["username"] = user["username"]
+    request.session["is_superuser"] = bool(user["is_superuser"])
+
+    repos.seed_default_categories(int(user["id"]))
+
+    if bool(user["is_superuser"]):
+        return redirect("/admin/usuarios")
+
     return redirect("/dashboard?msg=Login realizado com sucesso.")
 
 
@@ -164,6 +207,7 @@ def signup(
         uid = authenticate(username, password)
         request.session["user_id"] = int(uid)
         request.session["username"] = username.strip().lower()
+        request.session["is_superuser"] = False
         repos.seed_default_categories(int(uid))
         return redirect("/dashboard?msg=Conta criada com sucesso.")
     except Exception as e:
@@ -195,11 +239,98 @@ def logout(request: Request):
     return redirect("/?msg=Você saiu do sistema.")
 
 
+@app.get("/admin/usuarios")
+def admin_usuarios(request: Request):
+    user = require_superuser(request)
+
+    if not user:
+        return redirect("/")
+
+    users = admin_list_users()
+
+    return templates.TemplateResponse(
+        request,
+        "admin_usuarios.html",
+        {
+            "request": request,
+            "user": user,
+            "users": users,
+            "msg": request.query_params.get("msg"),
+            "err": request.query_params.get("err"),
+        }
+    )
+
+
+@app.post("/admin/usuarios/criar")
+def admin_create(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+):
+    user = require_superuser(request)
+
+    if not user:
+        return redirect("/")
+
+    try:
+        admin_create_user(
+            username=username,
+            password=password,
+            is_superuser=False
+        )
+
+        return redirect("/admin/usuarios?msg=Usuário criado com sucesso.")
+
+    except Exception as e:
+        return redirect(f"/admin/usuarios?err={str(e)}")
+
+
+@app.post("/admin/usuarios/excluir")
+def admin_delete(
+    request: Request,
+    user_id: int = Form(...),
+):
+    user = require_superuser(request)
+
+    if not user:
+        return redirect("/")
+
+    if int(user_id) == int(user["id"]):
+        return redirect("/admin/usuarios?err=Você não pode excluir seu próprio usuário.")
+
+    admin_delete_user(user_id)
+
+    return redirect("/admin/usuarios?msg=Usuário excluído.")
+
+
+@app.post("/admin/usuarios/resetar")
+def admin_reset(
+    request: Request,
+    user_id: int = Form(...),
+    new_password: str = Form(...),
+):
+    user = require_superuser(request)
+
+    if not user:
+        return redirect("/")
+
+    try:
+        admin_reset_password(user_id, new_password)
+        return redirect("/admin/usuarios?msg=Senha redefinida.")
+
+    except Exception as e:
+        return redirect(f"/admin/usuarios?err={str(e)}")
+
+
 @app.get("/dashboard")
 def dashboard(request: Request, month: int | None = Query(None), year: int | None = Query(None)):
     user = require_login(request)
     if not user:
         return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
+
     month, year = month_year_defaults(month, year)
     ctx = base_context(request, user, month, year, "dashboard")
     report = repos.get_expenses_report(user["id"], month, year) or []
@@ -218,6 +349,10 @@ def despesas(
     user = require_login(request)
     if not user:
         return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
+
     month, year = month_year_defaults(month, year)
     ctx = base_context(request, user, month, year, "despesas")
     cats = repos.list_categories(user["id"]) or []
@@ -253,6 +388,10 @@ def add_despesa(
     user = require_login(request)
     if not user:
         return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
+
     try:
         due = datetime.fromisoformat(due_date).date()
         cid = int(category_id) if category_id else None
@@ -272,6 +411,10 @@ def toggle_paid(request: Request, payment_id: int, paid: int = Form(1), month: i
     user = require_login(request)
     if not user:
         return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
+
     repos.mark_paid(user["id"], payment_id, bool(paid))
     return redirect(f"/despesas?month={month}&year={year}&msg=Despesa atualizada.")
 
@@ -281,6 +424,10 @@ def delete_despesa(request: Request, payment_id: int, month: int = Form(...), ye
     user = require_login(request)
     if not user:
         return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
+
     repos.delete_payment(user["id"], payment_id)
     return redirect(f"/despesas?month={month}&year={year}&msg=Despesa excluída.")
 
@@ -300,6 +447,10 @@ def edit_despesa(
     user = require_login(request)
     if not user:
         return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
+
     cid = int(category_id) if category_id else None
     repos.update_payment(user["id"], payment_id, description.strip(), float(amount), purchase_date, due_date, cid)
     return redirect(f"/despesas?month={month}&year={year}&msg=Despesa atualizada com sucesso.")
@@ -310,6 +461,10 @@ def pay_credit(request: Request, month: int = Form(...), year: int = Form(...)):
     user = require_login(request)
     if not user:
         return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
+
     repos.mark_credit_invoice_paid(user["id"], month, year)
     return redirect(f"/despesas?month={month}&year={year}&msg=Fatura marcada como paga.")
 
@@ -319,6 +474,10 @@ def unpay_credit(request: Request, month: int = Form(...), year: int = Form(...)
     user = require_login(request)
     if not user:
         return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
+
     repos.unmark_credit_invoice_paid(user["id"], month, year)
     return redirect(f"/despesas?month={month}&year={year}&msg=Pagamento da fatura desfeito.")
 
@@ -334,6 +493,10 @@ def delete_credit_group(
     user = require_login(request)
     if not user:
         return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
+
     repos.delete_credit_group(user["id"], credit_group, only_open=bool(only_open))
     return redirect(f"/despesas?month={month}&year={year}&msg=Compra parcelada excluída.")
 
@@ -349,6 +512,9 @@ def update_credit_installments(
     user = require_login(request)
     if not user:
         return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
 
     try:
         repos.update_credit_group_installments(
@@ -372,6 +538,10 @@ def download_pdf(request: Request, month: int, year: int):
     user = require_login(request)
     if not user:
         return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
+
     rows = repos.list_payments(user["id"], month, year) or []
     df = pd.DataFrame([
         {
@@ -397,6 +567,10 @@ def download_excel(request: Request, month: int, year: int):
     user = require_login(request)
     if not user:
         return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
+
     rows = repos.list_payments(user["id"], month, year) or []
     df = pd.DataFrame(rows)
     data = export_excel_bytes(df, "Pagamentos")
@@ -412,6 +586,10 @@ def categorias(request: Request, month: int | None = Query(None), year: int | No
     user = require_login(request)
     if not user:
         return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
+
     month, year = month_year_defaults(month, year)
     ctx = base_context(request, user, month, year, "categorias")
     ctx.update({"categories": repos.list_categories(user["id"]) or []})
@@ -423,6 +601,10 @@ def add_categoria(request: Request, name: str = Form(""), month: int = Form(...)
     user = require_login(request)
     if not user:
         return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
+
     if name.strip():
         repos.create_category(user["id"], name.strip())
     return redirect(f"/categorias?month={month}&year={year}&msg=Categoria cadastrada.")
@@ -433,6 +615,10 @@ def delete_categoria(request: Request, category_id: int, month: int = Form(...),
     user = require_login(request)
     if not user:
         return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
+
     repos.delete_category(user["id"], category_id)
     return redirect(f"/categorias?month={month}&year={year}&msg=Categoria excluída.")
 
@@ -442,6 +628,10 @@ def planejamento(request: Request, month: int | None = Query(None), year: int | 
     user = require_login(request)
     if not user:
         return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
+
     month, year = month_year_defaults(month, year)
     ctx = base_context(request, user, month, year, "planejamento")
     return templates.TemplateResponse(request, "planejamento.html", ctx)
@@ -458,5 +648,9 @@ def save_planejamento(
     user = require_login(request)
     if not user:
         return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
+
     repos.upsert_budget(user["id"], month, year, income, expense_goal)
     return redirect(f"/planejamento?month={month}&year={year}&msg=Planejamento salvo com sucesso.")
