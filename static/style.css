@@ -481,11 +481,24 @@ select {
   background: #15803d;
 }
 
-.gf-made {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 26px;
+@media (max-width: 768px) {
+  .gf-made {
+    display: flex !important;
+    justify-content: center !important;
+    margin-top: 22px !important;
+    padding-bottom: 20px !important;
+  }
+
+  .gf-made-line {
+    display: none !important;
+  }
+
+  .gf-made-txt {
+    color: #334155 !important;
+    font-size: 11px !important;
+    text-align: center !important;
+    white-space: normal !important;
+  }
 }
 
 .gf-made-line {
