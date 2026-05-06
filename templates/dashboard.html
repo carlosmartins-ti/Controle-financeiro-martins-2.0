@@ -1,20 +1,306 @@
 {% extends "base.html" %}
 {% block content %}
+
+<style>
+  .dashboard-grid{
+    display:grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(320px, .8fr);
+    gap:24px;
+    align-items:start;
+  }
+
+  .chart-card{
+    background:#fff;
+    border:1px solid #e8edf5;
+    border-radius:24px;
+    padding:22px;
+    box-shadow:0 8px 25px rgba(15,23,42,.04);
+  }
+
+  .selected-box{
+    border:1px solid #e5e7eb;
+    border-radius:18px;
+    padding:18px;
+    background:#f8fafc;
+    min-height:150px;
+  }
+
+  .selected-box.empty{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#64748b;
+    text-align:center;
+    font-weight:600;
+  }
+
+  .selected-kicker{
+    font-size:13px;
+    color:#64748b;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    margin-bottom:8px;
+    display:block;
+  }
+
+  .selected-name{
+    font-size:28px;
+    line-height:1.1;
+    font-weight:800;
+    color:#0f172a;
+    margin:0 0 10px 0;
+  }
+
+  .selected-value{
+    font-size:22px;
+    font-weight:700;
+    color:#111827;
+    margin:0 0 8px 0;
+  }
+
+  .selected-percent{
+    font-size:15px;
+    font-weight:600;
+    color:#475569;
+    margin:0;
+  }
+
+  .chart-actions{
+    margin-top:14px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+
+  .chart-btn{
+    border:none;
+    border-radius:12px;
+    padding:12px 16px;
+    font-weight:700;
+    cursor:pointer;
+    background:#21aa7a;
+    color:#fff;
+  }
+
+  .chart-btn.secondary{
+    background:#e2e8f0;
+    color:#0f172a;
+  }
+
+  .chart-help{
+    margin-top:14px;
+    font-size:14px;
+    color:#64748b;
+    line-height:1.5;
+  }
+
+  @media (max-width: 980px){
+    .dashboard-grid{
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
 <section class="panel">
   <div class="panel-head">
-    <div><h2>📊 Dashboard</h2><p>Resumo por categoria no período selecionado.</p></div>
-  </div>
-  {% if report %}
-    <div class="chart-list">
-      {% for r in report %}
-      <div class="bar-row">
-        <div class="bar-label"><strong>{{ r.name }}</strong><span>{{ r.total | brl }}</span></div>
-        <div class="bar-track"><div class="bar-fill" style="width: {{ ((r.total|float) / max_total * 100) if max_total else 0 }}%"></div></div>
-      </div>
-      {% endfor %}
+    <div>
+      <h2>📊 Dashboard</h2>
+      <p>Resumo por categoria no período selecionado.</p>
     </div>
+  </div>
+
+  {% if report %}
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+    <div class="dashboard-grid">
+      <div class="chart-card">
+        <div id="pieChart" style="width:100%;height:520px;"></div>
+      </div>
+
+      <div class="chart-card">
+        <h3 style="margin:0 0 16px 0; font-size:28px; color:#0f172a;">Detalhe da categoria</h3>
+
+        <div id="selectedBox" class="selected-box empty">
+          Clique em uma despesa/categoria do gráfico para ver o valor.
+        </div>
+
+        <div class="chart-actions">
+          <button type="button" id="resetChartBtn" class="chart-btn secondary" style="display:none;">
+            Mostrar todas novamente
+          </button>
+        </div>
+
+        <div class="chart-help">
+          <strong>Como funciona:</strong><br>
+          • 1 clique na fatia: mostra o valor da categoria.<br>
+          • 2 cliques seguidos na mesma fatia: deixa só ela no gráfico.<br>
+          • Clique no botão “Mostrar todas novamente” para restaurar tudo.
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const chartItems = [
+        {% for r in report %}
+          {
+            label: {{ r.name|tojson }},
+            value: {{ (r.total or 0)|float }}
+          }{{ "," if not loop.last }}
+        {% endfor %}
+      ];
+
+      const brl = new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL"
+      });
+
+      const colors = [
+        "#0ea5e9", "#60a5fa", "#22c55e", "#f59e0b", "#ef4444",
+        "#a855f7", "#14b8a6", "#f97316", "#84cc16", "#ec4899",
+        "#06b6d4", "#64748b", "#8b5cf6", "#10b981", "#f43f5e"
+      ];
+
+      let fullLabels = chartItems.map(i => i.label);
+      let fullValues = chartItems.map(i => Number(i.value));
+      let isolatedLabel = null;
+
+      let lastClickedLabel = null;
+      let lastClickAt = 0;
+
+      function getTotal(values){
+        return values.reduce((acc, n) => acc + Number(n || 0), 0);
+      }
+
+      function updateSelectedBox(label, value){
+        const box = document.getElementById("selectedBox");
+        const total = getTotal(fullValues);
+        const percent = total > 0 ? ((value / total) * 100) : 0;
+
+        box.classList.remove("empty");
+        box.innerHTML = `
+          <span class="selected-kicker">Categoria selecionada</span>
+          <h4 class="selected-name">${label}</h4>
+          <p class="selected-value">${brl.format(value)}</p>
+          <p class="selected-percent">${percent.toFixed(2)}% do total do mês</p>
+        `;
+      }
+
+      function resetSelectedBox(){
+        const box = document.getElementById("selectedBox");
+        box.classList.add("empty");
+        box.innerHTML = `Clique em uma despesa/categoria do gráfico para ver o valor.`;
+      }
+
+      function showResetButton(show){
+        document.getElementById("resetChartBtn").style.display = show ? "inline-block" : "none";
+      }
+
+      function plotChart(labels, values){
+        const data = [{
+          type: "pie",
+          labels: labels,
+          values: values,
+          textinfo: "percent",
+          textposition: "inside",
+          insidetextorientation: "auto",
+          sort: false,
+          hole: 0,
+          marker: {
+            colors: labels.map((_, i) => colors[i % colors.length]),
+            line: {
+              color: "#ffffff",
+              width: 2
+            }
+          },
+          hovertemplate:
+            "<b>%{label}</b><br>" +
+            "Valor: %{customdata}<br>" +
+            "Percentual: %{percent}<extra></extra>",
+          customdata: values.map(v => brl.format(v))
+        }];
+
+        const layout = {
+          margin: { t: 10, r: 10, b: 10, l: 10 },
+          showlegend: true,
+          legend: {
+            orientation: "v",
+            x: 1.02,
+            y: 0.5,
+            xanchor: "left",
+            yanchor: "middle",
+            font: { size: 14 }
+          },
+          paper_bgcolor: "#ffffff",
+          plot_bgcolor: "#ffffff"
+        };
+
+        const config = {
+          responsive: true,
+          displayModeBar: false
+        };
+
+        Plotly.newPlot("pieChart", data, layout, config).then(bindChartEvents);
+      }
+
+      function isolateOnly(label){
+        const idx = fullLabels.indexOf(label);
+        if (idx === -1) return;
+
+        isolatedLabel = label;
+        plotChart([fullLabels[idx]], [fullValues[idx]]);
+        updateSelectedBox(fullLabels[idx], fullValues[idx]);
+        showResetButton(true);
+      }
+
+      function restoreAll(){
+        isolatedLabel = null;
+        plotChart(fullLabels, fullValues);
+        showResetButton(false);
+        resetSelectedBox();
+      }
+
+      function bindChartEvents(){
+        const chart = document.getElementById("pieChart");
+
+        chart.on("plotly_click", function(evt){
+          if (!evt || !evt.points || !evt.points.length) return;
+
+          const point = evt.points[0];
+          const clickedLabel = point.label;
+          let clickedValue = Number(point.value || 0);
+
+          updateSelectedBox(clickedLabel, clickedValue);
+
+          const now = Date.now();
+
+          // 2 cliques rápidos na mesma categoria = isolar só ela
+          if (lastClickedLabel === clickedLabel && (now - lastClickAt) < 450) {
+            if (isolatedLabel === clickedLabel) {
+              restoreAll();
+            } else {
+              isolateOnly(clickedLabel);
+            }
+            lastClickedLabel = null;
+            lastClickAt = 0;
+            return;
+          }
+
+          lastClickedLabel = clickedLabel;
+          lastClickAt = now;
+        });
+      }
+
+      document.getElementById("resetChartBtn").addEventListener("click", function(){
+        restoreAll();
+      });
+
+      plotChart(fullLabels, fullValues);
+      resetSelectedBox();
+    </script>
+
   {% else %}
     <div class="empty">Nenhuma despesa cadastrada nesse mês.</div>
   {% endif %}
 </section>
+
 {% endblock %}
