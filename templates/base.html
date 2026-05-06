@@ -6,8 +6,13 @@
   <title>Controle Financeiro</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="app-body">
-  <aside class="sidebar">
+<body class="app-body" id="appBody">
+
+  <div class="mobile-overlay" id="mobileOverlay" onclick="toggleMobileMenu(false)"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <button type="button" class="mobile-close" onclick="toggleMobileMenu(false)">✕</button>
+
     <div class="brand-mini">
       <div class="brand-icon">💳</div>
       <div>
@@ -23,18 +28,23 @@
     </div>
 
     <form class="period-form" method="get" action="/{{ page }}">
-      <label>Mês</label>
-      <select name="month" onchange="this.form.submit()">
-        {% for num, nome in meses %}
-          <option value="{{ num }}" {% if num == month %}selected{% endif %}>{{ nome }}</option>
-        {% endfor %}
-      </select>
-      <label>Ano</label>
-      <select name="year" onchange="this.form.submit()">
-        {% for y in years %}
-          <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
-        {% endfor %}
-      </select>
+      <div>
+        <label>Mês</label>
+        <select name="month" onchange="this.form.submit()">
+          {% for num, nome in meses %}
+            <option value="{{ num }}" {% if num == month %}selected{% endif %}>{{ nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label>Ano</label>
+        <select name="year" onchange="this.form.submit()">
+          {% for y in years %}
+            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+      </div>
     </form>
 
     <nav class="menu">
@@ -49,9 +59,13 @@
 
   <main class="content">
     <header class="topbar">
-      <div>
-        <h1>💳 Controle Financeiro</h1>
-        <p>Período: <strong>{{ month_label }}/{{ year }}</strong></p>
+      <div class="topbar-title">
+        <button type="button" class="mobile-menu-btn" onclick="toggleMobileMenu(true)">☰</button>
+
+        <div>
+          <h1>💳 Controle Financeiro</h1>
+          <p>Período: <strong>{{ month_label }}/{{ year }}</strong></p>
+        </div>
       </div>
     </header>
 
@@ -67,5 +81,22 @@
 
     {% block content %}{% endblock %}
   </main>
+
+  <script>
+    function toggleMobileMenu(open) {
+      const app = document.getElementById("appBody");
+      if (open) {
+        app.classList.add("menu-open");
+      } else {
+        app.classList.remove("menu-open");
+      }
+    }
+
+    window.addEventListener("resize", function () {
+      if (window.innerWidth > 960) {
+        document.getElementById("appBody").classList.remove("menu-open");
+      }
+    });
+  </script>
 </body>
 </html>
