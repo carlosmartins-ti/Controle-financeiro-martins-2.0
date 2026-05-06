@@ -126,6 +126,7 @@ def login_page(request: Request):
     if current_user(request):
         return redirect("/dashboard")
     return templates.TemplateResponse(
+        request,
         "login.html",
         {
             "request": request,
@@ -202,7 +203,7 @@ def dashboard(request: Request, month: int | None = Query(None), year: int | Non
     report = repos.get_expenses_report(user["id"], month, year) or []
     max_total = max([float(r.get("total") or 0) for r in report], default=0)
     ctx.update({"report": report, "max_total": max_total})
-    return templates.TemplateResponse("dashboard.html", ctx)
+    return templates.TemplateResponse(request, "dashboard.html", ctx)
 
 
 @app.get("/despesas")
@@ -233,7 +234,7 @@ def despesas(
         "open_credit": open_credit,
         "total_fatura": total_fatura,
     })
-    return templates.TemplateResponse("despesas.html", ctx)
+    return templates.TemplateResponse(request, "despesas.html", ctx)
 
 
 @app.post("/despesas/add")
@@ -383,8 +384,7 @@ def categorias(request: Request, month: int | None = Query(None), year: int | No
     month, year = month_year_defaults(month, year)
     ctx = base_context(request, user, month, year, "categorias")
     ctx.update({"categories": repos.list_categories(user["id"]) or []})
-    return templates.TemplateResponse("categorias.html", ctx)
-
+    return templates.TemplateResponse(request, "categorias.html", ctx)
 
 @app.post("/categorias/add")
 def add_categoria(request: Request, name: str = Form(""), month: int = Form(...), year: int = Form(...)):
@@ -412,7 +412,7 @@ def planejamento(request: Request, month: int | None = Query(None), year: int | 
         return redirect("/")
     month, year = month_year_defaults(month, year)
     ctx = base_context(request, user, month, year, "planejamento")
-    return templates.TemplateResponse("planejamento.html", ctx)
+    return templates.TemplateResponse(request, "planejamento.html", ctx)
 
 
 @app.post("/planejamento/save")
