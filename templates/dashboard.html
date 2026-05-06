@@ -59,79 +59,54 @@
 
       let selectedLabel = null;
 
-      function buildData(labelsToShow, valuesToShow) {
-        return [{
-          type: "pie",
-          labels: labelsToShow,
-          values: valuesToShow,
-          textinfo: "percent",
-          textposition: "inside",
-          insidetextorientation: "auto",
-          sort: false,
-          hole: 0,
-          marker: {
-            colors: labelsToShow.map((label) => {
-              const originalIndex = fullLabels.indexOf(label);
-              return colors[originalIndex % colors.length];
-            }),
-            line: {
-              color: "#ffffff",
-              width: 2
-            }
-          },
-          hovertemplate:
-            "<b>%{label}</b><br>" +
-            "Valor: %{customdata}<br>" +
-            "Percentual: %{percent}<extra></extra>",
-          customdata: valuesToShow.map(v => brl.format(v))
-        }];
-      }
-
       function buildLayout() {
         const mobile = window.innerWidth < 960;
+        const prefersDark = window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+        const useDarkMobile = mobile && prefersDark;
 
         return {
-          margin: mobile
+            margin: mobile
             ? { t: 8, r: 8, b: 85, l: 8 }
             : { t: 10, r: 10, b: 10, l: 10 },
-          showlegend: true,
-          legend: mobile
+
+            showlegend: true,
+
+            legend: mobile
             ? {
                 orientation: "h",
                 x: 0,
                 y: -0.18,
                 xanchor: "left",
                 yanchor: "top",
-                font: { size: 11 }
-              }
+                font: {
+                    size: 11,
+                    color: useDarkMobile ? "#e5e7eb" : "#0f172a"
+                }
+                }
             : {
                 orientation: "v",
                 x: 1.02,
                 y: 0.5,
                 xanchor: "left",
                 yanchor: "middle",
-                font: { size: 14 }
-              },
-          paper_bgcolor: "#ffffff",
-          plot_bgcolor: "#ffffff",
-          height: mobile ? 390 : 520
+                font: {
+                    size: 14,
+                    color: "#0f172a"
+                }
+                },
+
+            paper_bgcolor: useDarkMobile ? "#0b1220" : "#ffffff",
+            plot_bgcolor: useDarkMobile ? "#0b1220" : "#ffffff",
+
+            font: {
+            color: useDarkMobile ? "#e5e7eb" : "#0f172a"
+            },
+
+            height: mobile ? 390 : 520
         };
-      }
-
-      function renderChart(labelsToShow, valuesToShow) {
-        const config = {
-          responsive: true,
-          displayModeBar: false
-        };
-
-        return Plotly.react(
-          "pieChart",
-          buildData(labelsToShow, valuesToShow),
-          buildLayout(),
-          config
-        );
-      }
-
+        }
       function bindChartClick() {
         const chart = document.getElementById("pieChart");
 
