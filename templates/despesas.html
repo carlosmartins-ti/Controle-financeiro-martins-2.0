@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <div><h2>🧾 Despesas</h2><p>Cadastre, edite, pague e exporte suas despesas.</p></div>
+    <div class="actions">
+      <a class="btn secondary" href="/despesas/pdf?month={{ month }}&year={{ year }}">📄 PDF</a>
+      <a class="btn secondary" href="/despesas/excel?month={{ month }}&year={{ year }}">📊 Excel</a>
+      <a class="btn secondary" href="/despesas?month={{ month }}&year={{ year }}&hide_paid={{ 0 if hide_paid else 1 }}">{{ '👁️ Mostrar pagos' if hide_paid else '🙈 Ocultar pagos' }}</a>
+    </div>
+  </div>
+
+  {% if credit_rows %}
+  <div class="invoice-card">
+    <div><span>💳 Fatura do cartão</span><strong>{{ total_fatura | brl }}</strong><small>Total em aberto</small></div>
+    {% if open_credit %}
+    <form method="post" action="/despesas/credit/pay"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="year" value="{{ year }}"><button>💰 Pagar fatura</button></form>
+    {% else %}
+    <form method="post" action="/despesas/credit/unpay"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="year" value="{{ year }}"><button>🔄 Desfazer pagamento</button></form>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <details class="add-box" open>
+    <summary>➕ Adicionar despesa</summary>
+    <form class="grid-form" method="post" action="/despesas/add">
+      <label>Descrição<input name="description" required></label>
+      <label>Valor (R$)<input name="amount" type="number" step="0.01" min="0" required></label>
+      <label>Data da compra<input name="purchase_date" type="date" value="{{ '%04d-%02d-%02d'|format(year, month, 1) }}" required></label>
+      <label>Vencimento<input name="due_date" type="date" value="{{ '%04d-%02d-%02d'|format(year, month, 1) }}" required></label>
+      <label>Categoria<select name="category_id"><option value="">(Sem categoria)</option>{% for c in categories %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></label>
+      <label>Parcelas<input name="installments" type="number" min="1" value="1"></label>
+      <label>Tipo de valor<select name="parcel_type"><option value="total">Valor total da compra</option><option value="unit">Valor já é por parcela</option></select></label>
+      <button type="submit">Adicionar</button>
+    </form>
+  </details>
+
+  <div class="expense-list">
+    {% if visible_rows %}
+      {% for r in visible_rows %}
+      <article class="expense-card">
+        <div class="expense-top">
+          <div><h3>🧾 {{ r.description }}</h3><p>🏷️ {{ r.category or '(sem categoria)' }}</p></div>
+          {% if r.paid %}<span class="badge paid">✅ Pago</span>{% else %}<span class="badge open">🕓 Em aberto</span>{% endif %}
+        </div>
+        <div class="expense-middle">
+          <strong>{{ r.amount | brl }}</strong>
+          <span>Compra: {{ r.purchase_date | datebr }}</span>
+          <span>Venc: {{ r.due_date | datebr }}</span>
+        </div>
+        <div class="expense-actions">
+          <form method="post" action="/despesas/{{ r.id }}/paid"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="year" value="{{ year }}"><input type="hidden" name="paid" value="{{ 0 if r.paid else 1 }}"><button>{{ 'Desfazer' if r.paid else 'Pagar' }}</button></form>
+          <button type="button" onclick="toggleEdit('edit-{{ r.id }}')">Editar</button>
+          <form method="post" action="/despesas/{{ r.id }}/delete" onsubmit="return confirm('Excluir esta despesa?')"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="year" value="{{ year }}"><button class="danger">Excluir</button></form>
+        </div>
+
+        {% if r.is_credit and r.installments|int > 1 and r.credit_group %}
+        <details class="parcel-box"><summary>🧩 Compra parcelada</summary>
+          <form method="post" action="/despesas/credit/delete-group" onsubmit="return confirm('Excluir parcelas em aberto?')"><input type="hidden" name="credit_group" value="{{ r.credit_group }}"><input type="hidden" name="only_open" value="1"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="year" value="{{ year }}"><button>Excluir parcelas em aberto</button></form>
+          <form method="post" action="/despesas/credit/delete-group" onsubmit="return confirm('Excluir TODA a compra parcelada?')"><input type="hidden" name="credit_group" value="{{ r.credit_group }}"><input type="hidden" name="only_open" value="0"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="year" value="{{ year }}"><button class="danger">Excluir toda compra</button></form>
+        </details>
+        {% endif %}
+
+        <form id="edit-{{ r.id }}" class="edit-form" method="post" action="/despesas/{{ r.id }}/edit">
+          <input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="year" value="{{ year }}">
+          <label>Descrição<input name="description" value="{{ r.description }}" required></label>
+          <label>Valor<input name="amount" type="number" step="0.01" value="{{ r.amount }}" required></label>
+          <label>Compra<input name="purchase_date" type="date" value="{{ r.purchase_date }}" required></label>
+          <label>Vencimento<input name="due_date" type="date" value="{{ r.due_date }}" required></label>
+          <label>Categoria<select name="category_id"><option value="">(Sem categoria)</option>{% for c in categories %}<option value="{{ c.id }}" {% if c.id == r.category_id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
+          <button>Salvar</button>
+        </form>
+      </article>
+      {% endfor %}
+    {% else %}
+      <div class="empty">Nenhuma despesa cadastrada ou visível nesse filtro.</div>
+    {% endif %}
+  </div>
+</section>
+<script>
+function toggleEdit(id){ const el=document.getElementById(id); el.classList.toggle('open'); }
+</script>
+{% endblock %}

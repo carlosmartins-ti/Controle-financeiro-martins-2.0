@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Controle Financeiro</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="app-body">
+  <aside class="sidebar">
+    <div class="brand-mini">
+      <div class="brand-icon">💳</div>
+      <div>
+        <strong>Controle<br>Financeiro</strong>
+        <span>Gestão inteligente</span>
+      </div>
+    </div>
+
+    <div class="user-box">
+      <span>Usuário</span>
+      <strong>{{ user.username }}</strong>
+      {% if user.is_admin %}<em>Administrador</em>{% endif %}
+    </div>
+
+    <form class="period-form" method="get" action="/{{ page }}">
+      <label>Mês</label>
+      <select name="month" onchange="this.form.submit()">
+        {% for num, nome in meses %}
+          <option value="{{ num }}" {% if num == month %}selected{% endif %}>{{ nome }}</option>
+        {% endfor %}
+      </select>
+      <label>Ano</label>
+      <select name="year" onchange="this.form.submit()">
+        {% for y in years %}
+          <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+        {% endfor %}
+      </select>
+    </form>
+
+    <nav class="menu">
+      <a class="{{ 'active' if page == 'dashboard' else '' }}" href="/dashboard?month={{ month }}&year={{ year }}">📊 Dashboard</a>
+      <a class="{{ 'active' if page == 'despesas' else '' }}" href="/despesas?month={{ month }}&year={{ year }}">🧾 Despesas</a>
+      <a class="{{ 'active' if page == 'categorias' else '' }}" href="/categorias?month={{ month }}&year={{ year }}">🏷️ Categorias</a>
+      <a class="{{ 'active' if page == 'planejamento' else '' }}" href="/planejamento?month={{ month }}&year={{ year }}">💰 Planejamento</a>
+    </nav>
+
+    <a class="logout" href="/logout">Sair</a>
+  </aside>
+
+  <main class="content">
+    <header class="topbar">
+      <div>
+        <h1>💳 Controle Financeiro</h1>
+        <p>Período: <strong>{{ month_label }}/{{ year }}</strong></p>
+      </div>
+    </header>
+
+    {% if msg %}<div class="alert success">{{ msg }}</div>{% endif %}
+    {% if err %}<div class="alert error">{{ err }}</div>{% endif %}
+
+    <section class="metrics">
+      <div class="metric-card"><span>Total do mês</span><strong>{{ total | brl }}</strong></div>
+      <div class="metric-card"><span>Pago</span><strong>{{ pago | brl }}</strong></div>
+      <div class="metric-card"><span>Em aberto</span><strong>{{ aberto | brl }}</strong></div>
+      <div class="metric-card"><span>Saldo</span><strong>{{ saldo | brl }}</strong></div>
+    </section>
+
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

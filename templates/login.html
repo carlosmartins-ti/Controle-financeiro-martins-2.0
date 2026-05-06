@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Controle Financeiro - Login</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="login-body">
+  <section class="login-shell">
+    <div class="login-left-panel">
+      <div>
+        <div class="login-brand-icon">💳</div>
+        <div class="login-brand-name">Controle<br>Financeiro</div>
+        <div class="login-brand-desc">Gestão inteligente das suas finanças</div>
+        <div class="login-stats">
+          <div class="login-stat"><span></span><div><small>Despesas por categoria</small><strong>Organizado e visual</strong></div></div>
+          <div class="login-stat"><span></span><div><small>Planejamento mensal</small><strong>Renda vs. gastos</strong></div></div>
+          <div class="login-stat"><span></span><div><small>Controle de parcelas</small><strong>Cartão e compras</strong></div></div>
+        </div>
+      </div>
+      <div class="login-author">Desenvolvido por <strong>Carlos Martins</strong><br>cr954479@gmail.com</div>
+    </div>
+
+    <div class="login-right-panel">
+      <div class="mobile-login-header">
+        <div class="login-brand-icon">💳</div>
+        <div><strong>Controle Financeiro</strong><span>Gestão inteligente das suas finanças</span></div>
+      </div>
+
+      <h1>Bem-vindo de volta</h1>
+      <p class="subtitle">Faça login para acessar sua conta</p>
+
+      {% if msg %}<div class="alert success">{{ msg }}</div>{% endif %}
+      {% if err %}<div class="alert error">{{ err }}</div>{% endif %}
+
+      <div class="tabs">
+        <button class="tab-btn {{ 'active' if tab == 'entrar' else '' }}" data-tab="entrar">Entrar</button>
+        <button class="tab-btn {{ 'active' if tab == 'criar' else '' }}" data-tab="criar">Criar conta</button>
+        <button class="tab-btn {{ 'active' if tab == 'recuperar' else '' }}" data-tab="recuperar">Recuperar senha</button>
+      </div>
+
+      <form class="tab-panel {{ 'active' if tab == 'entrar' else '' }}" id="entrar" method="post" action="/login">
+        <label>Usuário</label>
+        <input name="username" placeholder="seu.usuario" required>
+        <label>Senha</label>
+        <input name="password" type="password" placeholder="••••••••" required>
+        <a class="forgot" href="#" onclick="openTab('recuperar');return false;">Esqueci minha senha</a>
+        <button type="submit">Entrar</button>
+      </form>
+
+      <form class="tab-panel {{ 'active' if tab == 'criar' else '' }}" id="criar" method="post" action="/signup">
+        <label>Novo usuário</label>
+        <input name="username" placeholder="crie.seu.usuario" required>
+        <label>Nova senha</label>
+        <input name="password" type="password" placeholder="mínimo 4 caracteres" required>
+        <label>Pergunta de segurança</label>
+        <select name="security_question">
+          {% for q in security_questions %}<option value="{{ q }}">{{ q }}</option>{% endfor %}
+        </select>
+        <label>Resposta</label>
+        <input name="security_answer" placeholder="sua resposta" required>
+        <button type="submit">Criar conta</button>
+      </form>
+
+      <div class="tab-panel {{ 'active' if tab == 'recuperar' else '' }}" id="recuperar">
+        <form method="post" action="/security-question" class="inline-recover">
+          <label>Usuário</label>
+          <input name="username" placeholder="seu.usuario" required>
+          <button type="submit">Buscar pergunta</button>
+        </form>
+        <form method="post" action="/reset-password">
+          <label>Usuário</label>
+          <input name="username" placeholder="repita seu usuário" required>
+          <label>Resposta</label>
+          <input name="answer" placeholder="sua resposta" required>
+          <label>Nova senha</label>
+          <input name="new_password" type="password" placeholder="nova senha" required>
+          <button type="submit">Redefinir senha</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+<script>
+function openTab(id){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===id));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active', p.id===id));
+}
+document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',()=>openTab(btn.dataset.tab)));
+</script>
+</body>
+</html>

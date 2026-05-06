@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <div class="panel-head">
+    <div><h2>📊 Dashboard</h2><p>Resumo por categoria no período selecionado.</p></div>
+  </div>
+  {% if report %}
+    <div class="chart-list">
+      {% for r in report %}
+      <div class="bar-row">
+        <div class="bar-label"><strong>{{ r.name }}</strong><span>{{ r.total | brl }}</span></div>
+        <div class="bar-track"><div class="bar-fill" style="width: {{ ((r.total|float) / max_total * 100) if max_total else 0 }}%"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty">Nenhuma despesa cadastrada nesse mês.</div>
+  {% endif %}
+</section>
+{% endblock %}
