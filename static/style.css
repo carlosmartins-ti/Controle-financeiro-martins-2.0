@@ -953,3 +953,175 @@ Cole este bloco no final do `static/style.css`.
     border-radius: 18px;
   }
 }
+/* =========================================================
+   LOGIN NOVO - SEM MUDAR A ESTRUTURA DO HTML
+========================================================= */
+
+.login-body{
+  background:#030405 !important;
+  padding:32px 24px !important;
+}
+
+.login-shell{
+  max-width:1400px !important;
+  min-height:680px !important;
+  background:#050608 !important;
+  border:1px solid #0f1219 !important;
+  border-radius:20px !important;
+  box-shadow:none !important;
+  grid-template-columns:.42fr .58fr !important;
+}
+
+.login-left-panel{
+  background:#050608 !important;
+  border-right:1px solid #0f1219 !important;
+}
+
+.login-right-panel{
+  background:#080a12 !important;
+  padding:80px 70px !important;
+}
+
+.login-right-panel h1{
+  color:#f1f5f9 !important;
+  font-size:32px !important;
+}
+
+.subtitle{
+  color:#1e2d42 !important;
+}
+
+.alert.success{
+  background:#040f08 !important;
+  border-color:#0d3318 !important;
+  color:#4ade80 !important;
+}
+
+.alert.error{
+  background:#100404 !important;
+  border-color:#2a0a0a !important;
+  color:#f87171 !important;
+}
+
+.login-right-panel label{
+  color:#1a2535 !important;
+  font-size:11px !important;
+}
+
+.login-right-panel input,
+.login-right-panel select{
+  background:#04060e !important;
+  border-color:#121b28 !important;
+  color:#7a9ab0 !important;
+  border-radius:11px !important;
+}
+
+.login-right-panel input:focus,
+.login-right-panel select:focus{
+  border-color:rgba(34,197,94,.35) !important;
+  background:#030a06 !important;
+  box-shadow:none !important;
+}
+
+.forgot{
+  color:#22c55e !important;
+}
+
+.login-right-panel button[type="submit"]{
+  background:#16a34a !important;
+  border-radius:13px !important;
+  color:#fff !important;
+}
+
+.login-right-panel button[type="submit"]:hover{
+  background:#15803d !important;
+}
+
+/* MOBILE */
+@media(max-width:768px){
+  .login-body{
+    padding:0 !important;
+    background:#050608 !important;
+    align-items:flex-start !important;
+  }
+
+  .login-shell{
+    width:100% !important;
+    max-width:420px !important;
+    min-height:100vh !important;
+    display:block !important;
+    border-radius:0 !important;
+    border:0 !important;
+    background:#050608 !important;
+  }
+
+  .login-left-panel{
+    display:block !important;
+    min-height:auto !important;
+    padding:28px 28px 24px !important;
+    border-right:0 !important;
+  }
+
+  .login-left-panel .login-brand-icon,
+  .login-left-panel .login-brand-name,
+  .login-left-panel .login-brand-desc,
+  .login-left-panel .login-author{
+    display:none !important;
+  }
+
+  .login-stats{
+    display:grid !important;
+    grid-template-columns:repeat(3,1fr) !important;
+    gap:8px !important;
+    margin-top:18px !important;
+  }
+
+  .login-stat{
+    display:block !important;
+    min-height:84px !important;
+    padding:12px !important;
+    border-radius:16px !important;
+  }
+
+  .login-stat span{
+    display:none !important;
+  }
+
+  .login-stat small{
+    font-size:9px !important;
+  }
+
+  .login-stat strong{
+    font-size:12px !important;
+    line-height:1.2 !important;
+  }
+
+  .mobile-login-header{
+    display:none !important;
+  }
+
+  .login-right-panel{
+    background:#080a12 !important;
+    border-radius:36px 36px 0 0 !important;
+    padding:32px 28px 44px !important;
+  }
+
+  .login-right-panel h1{
+    font-size:22px !important;
+  }
+
+  .subtitle{
+    font-size:12px !important;
+  }
+
+  .login-right-panel input,
+  .login-right-panel select{
+    min-height:54px !important;
+    height:54px !important;
+  }
+
+  .login-right-panel button[type="submit"]{
+    min-height:56px !important;
+    font-size:15px !important;
+  }
+}
