@@ -9,6 +9,9 @@
     display: none;
   }
 }
+.tabs {
+  display: none;
+}
 /* ===== AJUSTE MOBILE MAIS PARECIDO COM O PADRÃO ANTIGO ===== */
 
 .mobile-menu-btn,
