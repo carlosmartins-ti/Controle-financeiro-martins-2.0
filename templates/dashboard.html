@@ -118,13 +118,13 @@
         };
       }
 
-      function plotChart(labelsToShow, valuesToShow) {
+      function renderChart(labelsToShow, valuesToShow) {
         const config = {
           responsive: true,
           displayModeBar: false
         };
 
-        Plotly.react(
+        return Plotly.react(
           "pieChart",
           buildData(labelsToShow, valuesToShow),
           buildLayout(),
@@ -132,44 +132,54 @@
         );
       }
 
-      function showAllCategories() {
-        selectedLabel = null;
-        plotChart(fullLabels, fullValues);
+      function bindChartClick() {
+        const chart = document.getElementById("pieChart");
+
+        chart.removeAllListeners && chart.removeAllListeners("plotly_click");
+
+        chart.on("plotly_click", function(evt) {
+          if (!evt || !evt.points || !evt.points.length) return;
+
+          const clickedLabel = evt.points[0].label;
+          const idx = fullLabels.indexOf(clickedLabel);
+
+          if (idx === -1) return;
+
+          if (selectedLabel === clickedLabel) {
+            selectedLabel = null;
+
+            renderChart(fullLabels, fullValues).then(function(){
+              bindChartClick();
+            });
+          } else {
+            selectedLabel = clickedLabel;
+
+            renderChart([fullLabels[idx]], [fullValues[idx]]).then(function(){
+              bindChartClick();
+            });
+          }
+        });
       }
 
-      function showOnlyCategory(label) {
-        const idx = fullLabels.indexOf(label);
-
-        if (idx === -1) {
-          showAllCategories();
-          return;
-        }
-
-        selectedLabel = label;
-        plotChart([fullLabels[idx]], [fullValues[idx]]);
+      function startChart() {
+        renderChart(fullLabels, fullValues).then(function(){
+          bindChartClick();
+        });
       }
 
-      const chart = document.getElementById("pieChart");
-
-      chart.on("plotly_click", function(evt) {
-        if (!evt || !evt.points || !evt.points.length) return;
-
-        const clickedLabel = evt.points[0].label;
-
-        if (selectedLabel === clickedLabel) {
-          showAllCategories();
-        } else {
-          showOnlyCategory(clickedLabel);
-        }
-      });
-
-      plotChart(fullLabels, fullValues);
+      startChart();
 
       window.addEventListener("resize", function() {
         if (selectedLabel) {
-          showOnlyCategory(selectedLabel);
+          const idx = fullLabels.indexOf(selectedLabel);
+
+          renderChart([fullLabels[idx]], [fullValues[idx]]).then(function(){
+            bindChartClick();
+          });
         } else {
-          showAllCategories();
+          renderChart(fullLabels, fullValues).then(function(){
+            bindChartClick();
+          });
         }
       });
     </script>
