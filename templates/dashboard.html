@@ -54,23 +54,26 @@
         "#0ea5e9", "#10b981", "#f97316", "#ec4899", "#64748b"
       ];
 
-      const labels = chartItems.map(i => i.label);
-      const values = chartItems.map(i => Number(i.value));
+      const fullLabels = chartItems.map(i => i.label);
+      const fullValues = chartItems.map(i => Number(i.value));
 
-      function plotChart(){
-        const mobile = window.innerWidth < 960;
+      let selectedLabel = null;
 
-        const data = [{
+      function buildData(labelsToShow, valuesToShow) {
+        return [{
           type: "pie",
-          labels: labels,
-          values: values,
+          labels: labelsToShow,
+          values: valuesToShow,
           textinfo: "percent",
           textposition: "inside",
           insidetextorientation: "auto",
           sort: false,
           hole: 0,
           marker: {
-            colors: labels.map((_, i) => colors[i % colors.length]),
+            colors: labelsToShow.map((label) => {
+              const originalIndex = fullLabels.indexOf(label);
+              return colors[originalIndex % colors.length];
+            }),
             line: {
               color: "#ffffff",
               width: 2
@@ -80,10 +83,14 @@
             "<b>%{label}</b><br>" +
             "Valor: %{customdata}<br>" +
             "Percentual: %{percent}<extra></extra>",
-          customdata: values.map(v => brl.format(v))
+          customdata: valuesToShow.map(v => brl.format(v))
         }];
+      }
 
-        const layout = {
+      function buildLayout() {
+        const mobile = window.innerWidth < 960;
+
+        return {
           margin: mobile
             ? { t: 8, r: 8, b: 85, l: 8 }
             : { t: 10, r: 10, b: 10, l: 10 },
@@ -109,19 +116,61 @@
           plot_bgcolor: "#ffffff",
           height: mobile ? 390 : 520
         };
+      }
 
+      function plotChart(labelsToShow, valuesToShow) {
         const config = {
           responsive: true,
           displayModeBar: false
         };
 
-        Plotly.newPlot("pieChart", data, layout, config);
+        Plotly.react(
+          "pieChart",
+          buildData(labelsToShow, valuesToShow),
+          buildLayout(),
+          config
+        );
       }
 
-      plotChart();
+      function showAllCategories() {
+        selectedLabel = null;
+        plotChart(fullLabels, fullValues);
+      }
 
-      window.addEventListener("resize", function(){
-        plotChart();
+      function showOnlyCategory(label) {
+        const idx = fullLabels.indexOf(label);
+
+        if (idx === -1) {
+          showAllCategories();
+          return;
+        }
+
+        selectedLabel = label;
+        plotChart([fullLabels[idx]], [fullValues[idx]]);
+      }
+
+      const chart = document.getElementById("pieChart");
+
+      chart.on("plotly_click", function(evt) {
+        if (!evt || !evt.points || !evt.points.length) return;
+
+        const clickedLabel = evt.points[0].label;
+
+        if (selectedLabel === clickedLabel) {
+          showAllCategories();
+        } else {
+          showOnlyCategory(clickedLabel);
+        }
+      });
+
+      plotChart(fullLabels, fullValues);
+
+      window.addEventListener("resize", function() {
+        if (selectedLabel) {
+          showOnlyCategory(selectedLabel);
+        } else {
+          showAllCategories();
+        }
       });
     </script>
 
