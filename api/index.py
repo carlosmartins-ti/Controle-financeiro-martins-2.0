@@ -35,6 +35,8 @@ app.add_middleware(
 )
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+
 def fmt_brl(v):
     try:
         return f"R$ {float(v):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -336,6 +338,35 @@ def delete_credit_group(
     return redirect(f"/despesas?month={month}&year={year}&msg=Compra parcelada excluída.")
 
 
+@app.post("/despesas/credit/update-installments")
+def update_credit_installments(
+    request: Request,
+    credit_group: int = Form(...),
+    new_installments: int = Form(...),
+    month: int = Form(...),
+    year: int = Form(...),
+):
+    user = require_login(request)
+    if not user:
+        return redirect("/")
+
+    try:
+        repos.update_credit_group_installments(
+            user["id"],
+            credit_group,
+            new_installments
+        )
+
+        return redirect(
+            f"/despesas?month={month}&year={year}&msg=Parcelas atualizadas com sucesso."
+        )
+
+    except Exception as e:
+        return redirect(
+            f"/despesas?month={month}&year={year}&err={str(e)}"
+        )
+
+
 @app.get("/despesas/pdf")
 def download_pdf(request: Request, month: int, year: int):
     user = require_login(request)
@@ -385,6 +416,7 @@ def categorias(request: Request, month: int | None = Query(None), year: int | No
     ctx = base_context(request, user, month, year, "categorias")
     ctx.update({"categories": repos.list_categories(user["id"]) or []})
     return templates.TemplateResponse(request, "categorias.html", ctx)
+
 
 @app.post("/categorias/add")
 def add_categoria(request: Request, name: str = Form(""), month: int = Form(...), year: int = Form(...)):
