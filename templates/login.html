@@ -6,88 +6,327 @@
   <title>Controle Financeiro - Login</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="login-body">
-  <section class="login-shell">
-    <div class="login-left-panel">
-      <div>
-        <div class="login-brand-icon">💳</div>
-        <div class="login-brand-name">Controle<br>Financeiro</div>
-        <div class="login-brand-desc">Gestão inteligente das suas finanças</div>
-        <div class="login-stats">
-          <div class="login-stat"><span></span><div><small>Despesas por categoria</small><strong>Organizado e visual</strong></div></div>
-          <div class="login-stat"><span></span><div><small>Planejamento mensal</small><strong>Renda vs. gastos</strong></div></div>
-          <div class="login-stat"><span></span><div><small>Controle de parcelas</small><strong>Cartão e compras</strong></div></div>
+
+<body class="gf-login-body">
+
+  <main class="gf-wrap">
+
+    <section class="gf-card">
+
+      <!-- LADO ESQUERDO / DESKTOP -->
+      <aside class="gf-left">
+        <div class="gf-glow"></div>
+        <div class="gf-glow2"></div>
+
+        <div>
+          <div class="gf-logo-row">
+            <div class="gf-logo-box">💳</div>
+            <span class="gf-logo-name">Gestão Financeira</span>
+          </div>
+
+          <div class="gf-body">
+            <div class="gf-pill">
+              <span class="gf-pill-dot"></span>
+              <span class="gf-pill-txt">Versão 2.4 · Online</span>
+            </div>
+
+            <p class="gf-eyebrow">Finanças pessoais</p>
+
+            <h1 class="gf-h1">
+              Gestão<br>
+              <em>Financeira</em>
+            </h1>
+
+            <p class="gf-tagline">
+              Inteligência financeira para quem leva o dinheiro a sério.
+            </p>
+
+            <div class="gf-feats">
+              <div class="gf-feat">
+                <div class="gf-feat-icon">📊</div>
+                <div>
+                  <p class="gf-feat-cat">Despesas por categoria</p>
+                  <p class="gf-feat-name">Organizado e visual</p>
+                </div>
+                <span class="gf-feat-arr">›</span>
+              </div>
+
+              <div class="gf-feat">
+                <div class="gf-feat-icon">↕️</div>
+                <div>
+                  <p class="gf-feat-cat">Planejamento mensal</p>
+                  <p class="gf-feat-name">Renda vs. gastos</p>
+                </div>
+                <span class="gf-feat-arr">›</span>
+              </div>
+
+              <div class="gf-feat">
+                <div class="gf-feat-icon">💳</div>
+                <div>
+                  <p class="gf-feat-cat">Controle de parcelas</p>
+                  <p class="gf-feat-name">Cartão e compras</p>
+                </div>
+                <span class="gf-feat-arr">›</span>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="login-author">Desenvolvido por <strong>Carlos Martins</strong><br>cr954479@gmail.com</div>
-    </div>
 
-    <div class="login-right-panel">
-      <div class="mobile-login-header">
-        <div class="login-brand-icon">💳</div>
-        <div><strong>Controle Financeiro</strong><span>Gestão inteligente das suas finanças</span></div>
-      </div>
+        <div class="gf-foot">
+          <div class="gf-foot-av">CM</div>
+          <div>
+            <p class="gf-foot-name">Carlos Martins</p>
+            <p class="gf-foot-email">cr954479@gmail.com</p>
+          </div>
+        </div>
+      </aside>
 
-      <h1>Bem-vindo de volta</h1>
-      <p class="subtitle">Faça login para acessar sua conta</p>
+      <!-- ÁREA MOBILE HERO -->
+      <section class="cf-mobile-hero">
+        <div class="cf-status-spacer"></div>
 
-      {% if msg %}<div class="alert success">{{ msg }}</div>{% endif %}
-      {% if err %}<div class="alert error">{{ err }}</div>{% endif %}
+        <div class="cf-pill">
+          <span class="cf-pill-dot"></span>
+          <span class="cf-pill-text">Versão 2.4 · Sistema online</span>
+        </div>
 
-      <div class="tabs">
-        <button class="tab-btn {{ 'active' if tab == 'entrar' else '' }}" data-tab="entrar">Login</button>
-        <button class="tab-btn {{ 'active' if tab == 'criar' else '' }}" data-tab="criar">Cadastro</button>
-        <button class="tab-btn {{ 'active' if tab == 'recuperar' else '' }}" data-tab="recuperar">Recuperar</button>
-      </div>
+        <p class="cf-eyebrow">Finanças pessoais</p>
 
-      <form class="tab-panel {{ 'active' if tab == 'entrar' else '' }}" id="entrar" method="post" action="/login">
-        <label>Usuário</label>
-        <input name="username" placeholder="seu.usuario" required>
-        <label>Senha</label>
-        <input name="password" type="password" placeholder="••••••••" required>
-        <a class="forgot" href="#" onclick="openTab('recuperar');return false;">Esqueci minha senha</a>
-        <button type="submit">Entrar</button>
-      </form>
+        <h1 class="cf-hero-title">
+          Gestão<br>
+          <em>Financeira</em>
+        </h1>
 
-      <form class="tab-panel {{ 'active' if tab == 'criar' else '' }}" id="criar" method="post" action="/signup">
-        <label>Novo usuário</label>
-        <input name="username" placeholder="crie.seu.usuario" required>
-        <label>Nova senha</label>
-        <input name="password" type="password" placeholder="mínimo 4 caracteres" required>
-        <label>Pergunta de segurança</label>
-        <select name="security_question">
-          {% for q in security_questions %}<option value="{{ q }}">{{ q }}</option>{% endfor %}
-        </select>
-        <label>Resposta</label>
-        <input name="security_answer" placeholder="sua resposta" required>
-        <button type="submit">Criar conta</button>
-      </form>
+        <p class="cf-hero-sub">
+          Inteligência financeira para quem leva o dinheiro a sério.
+        </p>
 
-      <div class="tab-panel {{ 'active' if tab == 'recuperar' else '' }}" id="recuperar">
-        <form method="post" action="/security-question" class="inline-recover">
-          <label>Usuário</label>
-          <input name="username" placeholder="seu.usuario" required>
-          <button type="submit">Buscar pergunta</button>
+        <div class="cf-cards-row">
+          <div class="cf-mini-card">
+            <div class="cf-mini-icon">📊</div>
+            <p class="cf-mini-label">Categorias</p>
+            <p class="cf-mini-val">Visual & claro</p>
+          </div>
+
+          <div class="cf-mini-card">
+            <div class="cf-mini-icon">↕️</div>
+            <p class="cf-mini-label">Mensal</p>
+            <p class="cf-mini-val">Renda vs. gasto</p>
+          </div>
+
+          <div class="cf-mini-card">
+            <div class="cf-mini-icon">💳</div>
+            <p class="cf-mini-label">Parcelas</p>
+            <p class="cf-mini-val">Cartão total</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- LADO DIREITO / FORM -->
+      <section class="gf-right">
+
+        <div class="cf-pip"></div>
+
+        <div class="gf-form-top">
+          <div>
+            <h2 class="gf-form-h">Bem-vindo de volta</h2>
+            <p class="gf-form-sub">Acesse sua conta com segurança</p>
+          </div>
+          <span class="gf-version">v2.4.0</span>
+          <div class="cf-avatar">CM</div>
+        </div>
+
+        {% if msg %}
+          <div class="gf-toast">
+            <div class="gf-toast-ico">🛡️</div>
+            <div>
+              <p class="gf-toast-t">{{ msg }}</p>
+              <p class="gf-toast-s">Seus dados estão protegidos</p>
+            </div>
+          </div>
+        {% endif %}
+
+        {% if err %}
+          <div class="gf-error">
+            <span>⚠️</span>
+            <span class="gf-error-txt">{{ err }}</span>
+          </div>
+        {% endif %}
+
+        <div class="gf-action-row">
+          <button class="gf-btn-ghost" type="button" onclick="openLoginPanel('login')">
+            Entrar
+          </button>
+          <button class="gf-btn-ghost" type="button" onclick="openLoginPanel('recover')">
+            🔑 Recuperar senha
+          </button>
+        </div>
+
+        <!-- LOGIN -->
+        <form class="gf-panel active" id="login-panel" method="post" action="/login">
+
+          <div class="gf-field">
+            <label class="gf-flbl">Usuário</label>
+            <div class="gf-finput">
+              <span class="gf-fi-icon">👤</span>
+              <input
+                name="username"
+                type="text"
+                placeholder="seu.usuario"
+                autocomplete="username"
+                required
+              >
+            </div>
+          </div>
+
+          <div class="gf-field">
+            <label class="gf-flbl">Senha</label>
+            <div class="gf-finput">
+              <span class="gf-fi-icon">🔒</span>
+              <input
+                id="loginPassword"
+                name="password"
+                type="password"
+                placeholder="••••••••"
+                autocomplete="current-password"
+                required
+              >
+              <button class="gf-eye" type="button" onclick="togglePassword('loginPassword', this)">👁️</button>
+            </div>
+          </div>
+
+          <div class="gf-forgot-row">
+            <button class="gf-forgot" type="button" onclick="openLoginPanel('recover')">
+              Esqueci minha senha
+            </button>
+          </div>
+
+          <button class="gf-cta" type="submit">
+            <span>Entrar na conta</span>
+            <span>→</span>
+          </button>
         </form>
-        <form method="post" action="/reset-password">
-          <label>Usuário</label>
-          <input name="username" placeholder="repita seu usuário" required>
-          <label>Resposta</label>
-          <input name="answer" placeholder="sua resposta" required>
-          <label>Nova senha</label>
-          <input name="new_password" type="password" placeholder="nova senha" required>
-          <button type="submit">Redefinir senha</button>
-        </form>
-      </div>
-    </div>
-  </section>
+
+        <!-- RECUPERAR SENHA -->
+        <section class="gf-panel" id="recover-panel">
+
+          <form method="post" action="/security-question" class="gf-recover-form">
+            <div class="gf-field">
+              <label class="gf-flbl">Usuário</label>
+              <div class="gf-finput">
+                <span class="gf-fi-icon">👤</span>
+                <input
+                  name="username"
+                  type="text"
+                  placeholder="seu.usuario"
+                  autocomplete="username"
+                  required
+                >
+              </div>
+            </div>
+
+            <button class="gf-btn-ghost full" type="submit">
+              Buscar pergunta de segurança
+            </button>
+          </form>
+
+          <form method="post" action="/reset-password" class="gf-recover-form">
+
+            <div class="gf-field">
+              <label class="gf-flbl">Usuário</label>
+              <div class="gf-finput">
+                <span class="gf-fi-icon">👤</span>
+                <input
+                  name="username"
+                  type="text"
+                  placeholder="repita seu usuário"
+                  autocomplete="username"
+                  required
+                >
+              </div>
+            </div>
+
+            <div class="gf-field">
+              <label class="gf-flbl">Resposta</label>
+              <div class="gf-finput">
+                <span class="gf-fi-icon">📝</span>
+                <input
+                  name="answer"
+                  type="text"
+                  placeholder="sua resposta"
+                  required
+                >
+              </div>
+            </div>
+
+            <div class="gf-field">
+              <label class="gf-flbl">Nova senha</label>
+              <div class="gf-finput">
+                <span class="gf-fi-icon">🔒</span>
+                <input
+                  id="newPassword"
+                  name="new_password"
+                  type="password"
+                  placeholder="nova senha"
+                  required
+                >
+                <button class="gf-eye" type="button" onclick="togglePassword('newPassword', this)">👁️</button>
+              </div>
+            </div>
+
+            <button class="gf-cta" type="submit">
+              <span>Redefinir senha</span>
+              <span>→</span>
+            </button>
+
+            <button class="gf-forgot back-login" type="button" onclick="openLoginPanel('login')">
+              Voltar para login
+            </button>
+          </form>
+        </section>
+
+        <div class="gf-made">
+          <div class="gf-made-line"></div>
+          <span class="gf-made-txt">Desenvolvido por Carlos Martins · cr954479@gmail.com</span>
+          <div class="gf-made-line"></div>
+        </div>
+
+      </section>
+
+    </section>
+
+  </main>
 
 <script>
-function openTab(id){
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===id));
-  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active', p.id===id));
-}
-document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',()=>openTab(btn.dataset.tab)));
+  function openLoginPanel(panel) {
+    const login = document.getElementById("login-panel");
+    const recover = document.getElementById("recover-panel");
+
+    if (panel === "recover") {
+      login.classList.remove("active");
+      recover.classList.add("active");
+    } else {
+      recover.classList.remove("active");
+      login.classList.add("active");
+    }
+  }
+
+  function togglePassword(id, btn) {
+    const input = document.getElementById(id);
+
+    if (input.type === "password") {
+      input.type = "text";
+      btn.textContent = "🙈";
+    } else {
+      input.type = "password";
+      btn.textContent = "👁️";
+    }
+  }
+
+  {% if tab == 'recuperar' %}
+    openLoginPanel('recover');
+  {% endif %}
 </script>
+
 </body>
 </html>
