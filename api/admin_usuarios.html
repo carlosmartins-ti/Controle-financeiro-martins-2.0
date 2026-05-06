@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin - Usuários</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="admin-body">
+
+  <main class="admin-shell">
+    <header class="admin-header">
+      <div>
+        <h1>👤 Administração de Usuários</h1>
+        <p>Gerencie usuários ativos do sistema.</p>
+      </div>
+
+      <a class="admin-logout" href="/logout">Sair</a>
+    </header>
+
+    {% if msg %}<div class="alert success">{{ msg }}</div>{% endif %}
+    {% if err %}<div class="alert error">{{ err }}</div>{% endif %}
+
+    <section class="admin-card">
+      <h2>➕ Criar novo usuário</h2>
+
+      <form class="admin-create-form" method="post" action="/admin/usuarios/criar">
+        <label>
+          Usuário
+          <input name="username" placeholder="ex: joao.silva" required>
+        </label>
+
+        <label>
+          Senha
+          <input name="password" type="password" placeholder="senha inicial" required>
+        </label>
+
+        <button type="submit">Criar usuário</button>
+      </form>
+    </section>
+
+    <section class="admin-card">
+      <h2>📋 Usuários cadastrados</h2>
+
+      {% if users %}
+        <div class="admin-users-list">
+          {% for u in users %}
+          <article class="admin-user-item">
+            <div class="admin-user-main">
+              <strong>{{ u.username }}</strong>
+              <span>ID: {{ u.id }}</span>
+              <span>Criado em: {{ u.created_at or '-' }}</span>
+
+              {% if u.is_superuser %}
+                <em>Super admin</em>
+              {% else %}
+                <em class="normal">Usuário comum</em>
+              {% endif %}
+            </div>
+
+            <div class="admin-user-actions">
+              <form method="post" action="/admin/usuarios/resetar" onsubmit="return confirm('Redefinir senha deste usuário?')">
+                <input type="hidden" name="user_id" value="{{ u.id }}">
+                <input name="new_password" type="password" placeholder="nova senha" required>
+                <button type="submit">Resetar senha</button>
+              </form>
+
+              {% if not u.is_superuser %}
+              <form method="post" action="/admin/usuarios/excluir" onsubmit="return confirm('Excluir este usuário? Esta ação não pode ser desfeita.')">
+                <input type="hidden" name="user_id" value="{{ u.id }}">
+                <button class="danger" type="submit">Excluir</button>
+              </form>
+              {% endif %}
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty">Nenhum usuário cadastrado.</div>
+      {% endif %}
+    </section>
+  </main>
+
+</body>
+</html>
