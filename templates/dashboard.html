@@ -6,19 +6,19 @@
     background:#fff;
     border:1px solid #e8edf5;
     border-radius:24px;
-    padding:22px;
+    padding:18px;
     box-shadow:0 8px 25px rgba(15,23,42,.04);
   }
 
   @media (max-width: 980px){
     .chart-card{
-      padding:0;
+      padding:10px;
       border-radius:18px;
       overflow:hidden;
     }
 
     #pieChart{
-      min-height:390px !important;
+      min-height:430px !important;
     }
 
     @media (prefers-color-scheme: dark){
@@ -43,7 +43,7 @@
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 
     <div class="chart-card">
-      <div id="pieChart" style="width:100%;height:100%;min-height:390px;"></div>
+      <div id="pieChart" style="width:100%;height:100%;min-height:430px;"></div>
     </div>
 
     <script>
@@ -111,7 +111,7 @@
 
         return {
           margin: mobile
-            ? { t: 8, r: 8, b: 120, l: 8 }
+            ? { t: 8, r: 8, b: 110, l: 8 }
             : { t: 10, r: 10, b: 10, l: 10 },
 
           showlegend: true,
@@ -120,13 +120,10 @@
             ? {
                 orientation: "h",
                 x: 0,
-                y: -0.12,
+                y: -0.10,
                 xanchor: "left",
                 yanchor: "top",
-                font: {
-                  size: 11,
-                  color: chartText
-                },
+                font: { size: 11, color: chartText },
                 bgcolor: "rgba(0,0,0,0)"
               }
             : {
@@ -135,19 +132,30 @@
                 y: 0.5,
                 xanchor: "left",
                 yanchor: "middle",
-                font: {
-                  size: 14,
-                  color: chartText
-                },
+                font: { size: 14, color: chartText },
                 bgcolor: "rgba(0,0,0,0)"
               },
 
           paper_bgcolor: chartBg,
           plot_bgcolor: chartBg,
           font: { color: chartText },
-
           height: mobile ? 430 : 520
         };
+      }
+
+      function renderChart(labelsToShow, valuesToShow) {
+        const config = {
+          responsive: true,
+          displayModeBar: false,
+          doubleClick: false
+        };
+
+        return Plotly.react(
+          "pieChart",
+          buildData(labelsToShow, valuesToShow),
+          buildLayout(),
+          config
+        );
       }
 
       function toggleCategory(clickedLabel) {
@@ -157,28 +165,25 @@
 
         if (selectedLabel === clickedLabel) {
           selectedLabel = null;
-
-          renderChart(fullLabels, fullValues).then(function(){
-            bindChartClick();
-          });
+          renderChart(fullLabels, fullValues).then(bindChartClick);
         } else {
           selectedLabel = clickedLabel;
-
-          renderChart([fullLabels[idx]], [fullValues[idx]]).then(function(){
-            bindChartClick();
-          });
+          renderChart([fullLabels[idx]], [fullValues[idx]]).then(bindChartClick);
         }
       }
 
       function bindChartClick() {
         const chart = document.getElementById("pieChart");
 
-        chart.removeAllListeners && chart.removeAllListeners("plotly_click");
+        if (chart.removeAllListeners) {
+          chart.removeAllListeners("plotly_click");
+        }
 
         chart.on("plotly_click", function(evt) {
           if (!evt || !evt.points || !evt.points.length) return;
 
           const clickedLabel = evt.points[0].label;
+          const pointNumber = evt.points[0].pointNumber;
           const now = Date.now();
 
           if (lastTapLabel === clickedLabel && (now - lastTapTime) < 450) {
@@ -191,25 +196,22 @@
           lastTapTime = now;
           lastTapLabel = clickedLabel;
 
+          Plotly.Fx.hover("pieChart", [
+            { curveNumber: 0, pointNumber: pointNumber }
+          ]);
+
           setTimeout(function(){
-            if (lastTapLabel === clickedLabel && (Date.now() - lastTapTime) >= 430) {
-              Plotly.Fx.hover("pieChart", [{ curveNumber: 0, pointNumber: evt.points[0].pointNumber }]);
-
-              setTimeout(function(){
-                Plotly.Fx.unhover("pieChart");
-              }, 2200);
-
+            if (lastTapLabel === clickedLabel) {
+              Plotly.Fx.unhover("pieChart");
               lastTapTime = 0;
               lastTapLabel = null;
             }
-          }, 460);
+          }, 2200);
         });
       }
 
       function startChart() {
-        renderChart(fullLabels, fullValues).then(function(){
-          bindChartClick();
-        });
+        renderChart(fullLabels, fullValues).then(bindChartClick);
       }
 
       startChart();
@@ -217,14 +219,9 @@
       window.addEventListener("resize", function() {
         if (selectedLabel) {
           const idx = fullLabels.indexOf(selectedLabel);
-
-          renderChart([fullLabels[idx]], [fullValues[idx]]).then(function(){
-            bindChartClick();
-          });
+          renderChart([fullLabels[idx]], [fullValues[idx]]).then(bindChartClick);
         } else {
-          renderChart(fullLabels, fullValues).then(function(){
-            bindChartClick();
-          });
+          renderChart(fullLabels, fullValues).then(bindChartClick);
         }
       });
     </script>
