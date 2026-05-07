@@ -1760,3 +1760,91 @@ select {
     background: #0b1220 !important;
   }
 }
+@media (max-width: 960px) and (prefers-color-scheme: light) {
+  .app-body,
+  .content {
+    background: #f5f7fb !important;
+    color: #0f172a !important;
+  }
+
+  .metric-card,
+  .panel,
+  .add-box,
+  .category-item,
+  .chart-card {
+    background: #ffffff !important;
+    border-color: #e6edf5 !important;
+  }
+
+  .topbar h1,
+  .panel-head h2,
+  .metric-card strong,
+  .category-item span,
+  .add-box summary {
+    color: #07142d !important;
+  }
+
+  .topbar p,
+  .panel-head p,
+  .metric-card span {
+    color: #64748b !important;
+  }
+
+  .grid-form input,
+  .grid-form select,
+  .simple-form input,
+  .simple-form select,
+  .edit-form input,
+  .edit-form select {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    border-color: #dbe3ee !important;
+  }
+}
+
+@media (max-width: 960px) and (prefers-color-scheme: dark) {
+  .app-body,
+  .content {
+    background: #080e1c !important;
+    color: #e5e7eb !important;
+  }
+
+  .metric-card,
+  .panel,
+  .add-box,
+  .category-item,
+  .chart-card {
+    background: #0b1220 !important;
+    border-color: rgba(255,255,255,.09) !important;
+    box-shadow: none !important;
+  }
+
+  .topbar h1,
+  .panel-head h2,
+  .metric-card strong,
+  .category-item span,
+  .add-box summary {
+    color: #f8fafc !important;
+  }
+
+  .topbar p,
+  .panel-head p,
+  .metric-card span {
+    color: #94a3b8 !important;
+  }
+
+  .grid-form input,
+  .grid-form select,
+  .simple-form input,
+  .simple-form select,
+  .edit-form input,
+  .edit-form select {
+    background: #111827 !important;
+    color: #f8fafc !important;
+    border-color: rgba(255,255,255,.12) !important;
+  }
+
+  input::placeholder {
+    color: #64748b !important;
+  }
+}
