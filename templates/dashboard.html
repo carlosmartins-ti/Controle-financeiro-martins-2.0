@@ -12,8 +12,13 @@
 
   @media (max-width: 980px){
     .chart-card{
-      padding:12px;
+      padding:0;
       border-radius:18px;
+      overflow:hidden;
+    }
+
+    #pieChart{
+      min-height:390px !important;
     }
 
     @media (prefers-color-scheme: dark){
@@ -66,6 +71,8 @@
       const fullValues = chartItems.map(i => Number(i.value));
 
       let selectedLabel = null;
+      let lastTapTime = 0;
+      let lastTapLabel = null;
 
       function buildData(labelsToShow, valuesToShow) {
         return [{
@@ -104,39 +111,36 @@
 
         return {
           margin: mobile
-            ? { t: 0, r: 0, b: 0, l: 0 }
+            ? { t: 4, r: 4, b: 4, l: 4 }
             : { t: 10, r: 10, b: 10, l: 10 },
 
           showlegend: true,
 
-          legend: mobile
-            ? {
-                orientation: "v",
-                x: 1.02,
-                y: 0.5,
-                xanchor: "left",
-                yanchor: "middle",
-                font: { size: 10, color: chartText }
-              }
-            : {
-                orientation: "v",
-                x: 1.02,
-                y: 0.5,
-                xanchor: "left",
-                yanchor: "middle",
-                font: { size: 14, color: "#0f172a" }
-              },
+          legend: {
+            orientation: "v",
+            x: mobile ? 0.98 : 1.02,
+            y: 0.5,
+            xanchor: mobile ? "right" : "left",
+            yanchor: "middle",
+            font: {
+              size: mobile ? 10 : 14,
+              color: chartText
+            },
+            bgcolor: "rgba(0,0,0,0)"
+          },
 
           paper_bgcolor: chartBg,
           plot_bgcolor: chartBg,
           font: { color: chartText },
-          height: mobile ? 360 : 520
+          height: mobile ? 390 : 520
         };
       }
+
       function renderChart(labelsToShow, valuesToShow) {
         const config = {
           responsive: true,
-          displayModeBar: false
+          displayModeBar: false,
+          doubleClick: false
         };
 
         return Plotly.react(
@@ -145,6 +149,26 @@
           buildLayout(),
           config
         );
+      }
+
+      function toggleCategory(clickedLabel) {
+        const idx = fullLabels.indexOf(clickedLabel);
+
+        if (idx === -1) return;
+
+        if (selectedLabel === clickedLabel) {
+          selectedLabel = null;
+
+          renderChart(fullLabels, fullValues).then(function(){
+            bindChartClick();
+          });
+        } else {
+          selectedLabel = clickedLabel;
+
+          renderChart([fullLabels[idx]], [fullValues[idx]]).then(function(){
+            bindChartClick();
+          });
+        }
       }
 
       function bindChartClick() {
@@ -156,23 +180,30 @@
           if (!evt || !evt.points || !evt.points.length) return;
 
           const clickedLabel = evt.points[0].label;
-          const idx = fullLabels.indexOf(clickedLabel);
+          const now = Date.now();
 
-          if (idx === -1) return;
-
-          if (selectedLabel === clickedLabel) {
-            selectedLabel = null;
-
-            renderChart(fullLabels, fullValues).then(function(){
-              bindChartClick();
-            });
-          } else {
-            selectedLabel = clickedLabel;
-
-            renderChart([fullLabels[idx]], [fullValues[idx]]).then(function(){
-              bindChartClick();
-            });
+          if (lastTapLabel === clickedLabel && (now - lastTapTime) < 450) {
+            toggleCategory(clickedLabel);
+            lastTapTime = 0;
+            lastTapLabel = null;
+            return;
           }
+
+          lastTapTime = now;
+          lastTapLabel = clickedLabel;
+
+          setTimeout(function(){
+            if (lastTapLabel === clickedLabel && (Date.now() - lastTapTime) >= 430) {
+              Plotly.Fx.hover("pieChart", [{ curveNumber: 0, pointNumber: evt.points[0].pointNumber }]);
+
+              setTimeout(function(){
+                Plotly.Fx.unhover("pieChart");
+              }, 2200);
+
+              lastTapTime = 0;
+              lastTapLabel = null;
+            }
+          }, 460);
         });
       }
 
