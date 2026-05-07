@@ -1776,3 +1776,27 @@ select {
     white-space: normal !important;
   }
 }
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 960px) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .menu a,
+  .metric-card,
+  .panel,
+  .btn,
+  button {
+    transition: background .12s ease, color .12s ease, transform .08s ease !important;
+  }
+
+  .menu a:active,
+  button:active,
+  .btn:active {
+    transform: scale(.98);
+  }
+}
