@@ -1739,3 +1739,24 @@ select {
     border-radius: 18px;
   }
 }
+@media (max-width: 960px) and (prefers-color-scheme: light) {
+  .chart-card {
+    background: #ffffff !important;
+    border-color: #e6edf5 !important;
+  }
+
+  #pieChart {
+    background: #ffffff !important;
+  }
+}
+
+@media (max-width: 960px) and (prefers-color-scheme: dark) {
+  .chart-card {
+    background: #0b1220 !important;
+    border-color: rgba(255,255,255,.09) !important;
+  }
+
+  #pieChart {
+    background: #0b1220 !important;
+  }
+}
