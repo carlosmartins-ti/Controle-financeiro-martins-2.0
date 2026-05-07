@@ -1727,3 +1727,52 @@ select {
     border-radius: 18px;
   }
 }
+/* =========================================================
+   AJUSTES RECENTES - DASHBOARD / MOBILE / MARCA
+========================================================= */
+
+@media (max-width: 960px) {
+  .chart-card {
+    padding: 10px !important;
+    border-radius: 18px !important;
+    overflow: hidden !important;
+  }
+
+  #pieChart {
+    min-height: 430px !important;
+  }
+}
+
+@media (max-width: 960px) and (prefers-color-scheme: dark) {
+  .chart-card,
+  #pieChart {
+    background: #0b1220 !important;
+  }
+}
+
+@media (max-width: 960px) and (prefers-color-scheme: light) {
+  .chart-card,
+  #pieChart {
+    background: #ffffff !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .gf-made {
+    display: flex !important;
+    justify-content: center !important;
+    margin-top: 22px !important;
+    padding-bottom: 20px !important;
+  }
+
+  .gf-made-line {
+    display: none !important;
+  }
+
+  .gf-made-txt {
+    color: #334155 !important;
+    font-size: 11px !important;
+    text-align: center !important;
+    white-space: normal !important;
+  }
+}
