@@ -143,6 +143,44 @@
           height: mobile ? 390 : 520
         };
       }
+      function buildLayout() {
+        const mobile = window.innerWidth < 960;
+        const darkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+        const chartBg = mobile && darkMode ? "#0b1220" : "#ffffff";
+        const chartText = mobile && darkMode ? "#e5e7eb" : "#0f172a";
+
+        return {
+          margin: mobile
+            ? { t: 8, r: 8, b: 85, l: 8 }
+            : { t: 10, r: 10, b: 10, l: 10 },
+
+          showlegend: true,
+
+          legend: mobile
+            ? {
+                orientation: "h",
+                x: 0,
+                y: -0.18,
+                xanchor: "left",
+                yanchor: "top",
+                font: { size: 11, color: chartText }
+              }
+            : {
+                orientation: "v",
+                x: 1.02,
+                y: 0.5,
+                xanchor: "left",
+                yanchor: "middle",
+                font: { size: 14, color: "#0f172a" }
+              },
+
+          paper_bgcolor: chartBg,
+          plot_bgcolor: chartBg,
+          font: { color: chartText },
+          height: mobile ? 390 : 520
+        };
+      }
 
       function renderChart(labelsToShow, valuesToShow) {
         const config = {
