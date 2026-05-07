@@ -1848,3 +1848,14 @@ select {
     color: #64748b !important;
   }
 }
+@media (max-width: 960px) {
+  .chart-card {
+    padding: 10px !important;
+    border-radius: 18px !important;
+    overflow: hidden !important;
+  }
+
+  #pieChart {
+    min-height: 430px !important;
+  }
+}
