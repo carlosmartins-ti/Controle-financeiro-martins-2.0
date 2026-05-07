@@ -111,44 +111,43 @@
 
         return {
           margin: mobile
-            ? { t: 4, r: 4, b: 4, l: 4 }
+            ? { t: 8, r: 8, b: 120, l: 8 }
             : { t: 10, r: 10, b: 10, l: 10 },
 
           showlegend: true,
 
-          legend: {
-            orientation: "v",
-            x: mobile ? 0.98 : 1.02,
-            y: 0.5,
-            xanchor: mobile ? "right" : "left",
-            yanchor: "middle",
-            font: {
-              size: mobile ? 10 : 14,
-              color: chartText
-            },
-            bgcolor: "rgba(0,0,0,0)"
-          },
+          legend: mobile
+            ? {
+                orientation: "h",
+                x: 0,
+                y: -0.12,
+                xanchor: "left",
+                yanchor: "top",
+                font: {
+                  size: 11,
+                  color: chartText
+                },
+                bgcolor: "rgba(0,0,0,0)"
+              }
+            : {
+                orientation: "v",
+                x: 1.02,
+                y: 0.5,
+                xanchor: "left",
+                yanchor: "middle",
+                font: {
+                  size: 14,
+                  color: chartText
+                },
+                bgcolor: "rgba(0,0,0,0)"
+              },
 
           paper_bgcolor: chartBg,
           plot_bgcolor: chartBg,
           font: { color: chartText },
-          height: mobile ? 390 : 520
-        };
-      }
 
-      function renderChart(labelsToShow, valuesToShow) {
-        const config = {
-          responsive: true,
-          displayModeBar: false,
-          doubleClick: false
+          height: mobile ? 430 : 520
         };
-
-        return Plotly.react(
-          "pieChart",
-          buildData(labelsToShow, valuesToShow),
-          buildLayout(),
-          config
-        );
       }
 
       function toggleCategory(clickedLabel) {
