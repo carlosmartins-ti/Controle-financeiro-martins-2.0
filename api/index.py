@@ -554,12 +554,30 @@ def download_pdf(request: Request, month: int, year: int):
         }
         for r in rows
     ])
+    if not df.empty:
+    df["_status_ordem"] = df["Status"].apply(lambda x: 1 if x == "Pago" else 0)
+
+    df["_parcelada_ordem"] = df["Descrição"].astype(str).apply(
+        lambda x: 0 if "(" in x and "/" in x and ")" in x else 1
+    )
+
+    df = df.sort_values(
+        by=["_status_ordem", "Categoria", "_parcelada_ordem", "Descrição"],
+        ascending=[True, True, True, True],
+        kind="mergesort"
+    )
+
+    df = df.drop(
+        columns=["_status_ordem", "_parcelada_ordem"],
+        errors="ignore"
+    )
     pdf = export_pdf_bytes(df, f"Despesas - {MESES[month - 1]}/{year}")
     return StreamingResponse(
         BytesIO(pdf),
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=despesas_{month}_{year}.pdf"},
     )
+    
 
 
 @app.get("/despesas/excel")
