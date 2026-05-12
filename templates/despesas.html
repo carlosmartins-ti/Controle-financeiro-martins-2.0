@@ -116,6 +116,9 @@
           <label>Compra<input name="purchase_date" type="date" value="{{ r.purchase_date }}" required></label>
           <label>Vencimento<input name="due_date" type="date" value="{{ r.due_date }}" required></label>
           <label>Categoria<select name="category_id"><option value="">(Sem categoria)</option>{% for c in categories %}<option value="{{ c.id }}" {% if c.id == r.category_id %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
+          {% if r.is_credit %}
+          <label>Parcelas<input name="new_installments" type="number" min="1" value="{{ r.installments or 1 }}"></label>
+          {% endif %}
           <button>Salvar</button>
         </form>
       </article>
