@@ -81,18 +81,20 @@ def export_pdf_bytes(df: pd.DataFrame, title: str = "Pagamentos") -> bytes:
     df = df.copy()
 
     # Ordenação profissional
-    if "Categoria" in df.columns and "Descrição" in df.columns:
+    if "Status" in df.columns and "Categoria" in df.columns and "Descrição" in df.columns:
+        df["_status_ordem"] = df["Status"].apply(lambda x: 1 if x == "Pago" else 0)
+
         df["_tipo_ordem"] = df["Descrição"].astype(str).apply(
             lambda x: 0 if "(" in x and "/" in x and ")" in x else 1
         )
 
         df = df.sort_values(
-            by=["Categoria", "_tipo_ordem", "Descrição"],
-            ascending=[True, True, True],
+            by=["_status_ordem", "Categoria", "_tipo_ordem", "Descrição"],
+            ascending=[True, True, True, True],
             kind="mergesort"
         )
 
-        df = df.drop(columns=["_tipo_ordem"])
+        df = df.drop(columns=["_status_ordem", "_tipo_ordem"], errors="ignore")
 
     total_registros = len(df)
 
