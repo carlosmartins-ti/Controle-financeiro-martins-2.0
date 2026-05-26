@@ -1,6 +1,4 @@
-"""Entrada local opcional.
-No Vercel, a entrada usada é api/index.py.
-Para rodar localmente: python app.py
+ar localmente: python app.py
 """
 import uvicorn
 
