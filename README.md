@@ -8,7 +8,7 @@
 ![Versão](https://img.shields.io/badge/versão-2.4.0-brightgreen?style=for-the-badge)
 
 ![preview](https://i.imgur.com/placeholder.png)
-<!vou colocar mais tarde-->
+<!-->
 
 </div>
 
