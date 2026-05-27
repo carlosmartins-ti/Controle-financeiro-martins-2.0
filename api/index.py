@@ -94,7 +94,6 @@ def require_login(request: Request):
     user = current_user(request)
     if not user:
         return None
-    repos.seed_default_categories(user["id"])
     return user
 
 
