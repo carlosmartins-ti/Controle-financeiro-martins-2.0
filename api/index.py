@@ -94,6 +94,7 @@ def require_login(request: Request):
     user = current_user(request)
     if not user:
         return None
+    repos.seed_default_categories(user["id"])
     return user
 
 
@@ -335,12 +336,7 @@ def dashboard(request: Request, month: int | None = Query(None), year: int | Non
     report = repos.get_expenses_report(user["id"], month, year) or []
     max_total = max([float(r.get("total") or 0) for r in report], default=0)
     ctx.update({"report": report, "max_total": max_total})
-
-    return templates.TemplateResponse(
-        request,
-        "dashboard.html",
-        ctx
-    )
+    return templates.TemplateResponse(request, "dashboard.html", ctx)
 
 
 @app.get("/despesas")
