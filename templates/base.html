@@ -4,20 +4,34 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Controle Financeiro</title>
+
   <link rel="stylesheet" href="/static/style.css">
+
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
 
 <body class="app-body" id="appBody">
 
-  <div id="pageLoading" style="display:none;position:fixed;top:0;left:0;width:100%;height:3px;background:#22c55e;z-index:99999;"></div>
+  <div id="pageLoading"
+       style="display:none;position:fixed;top:0;left:0;width:100%;height:3px;background:#22c55e;z-index:99999;">
+  </div>
 
-  <div class="mobile-overlay" id="mobileOverlay" onclick="toggleMobileMenu(false)"></div>
+  <div class="mobile-overlay"
+       id="mobileOverlay"
+       onclick="toggleMobileMenu(false)">
+  </div>
 
   <aside class="sidebar" id="sidebar">
-    <button type="button" class="mobile-close" onclick="toggleMobileMenu(false)">✕</button>
+
+    <button type="button"
+            class="mobile-close"
+            onclick="toggleMobileMenu(false)">
+      ✕
+    </button>
 
     <div class="brand-mini">
       <div class="brand-icon">💳</div>
+
       <div>
         <strong>Controle<br>Financeiro</strong>
         <span>Gestão inteligente</span>
@@ -27,67 +41,160 @@
     <div class="user-box">
       <span>Usuário</span>
       <strong>{{ user.username }}</strong>
-      {% if user.is_admin %}<em>Administrador</em>{% endif %}
+
+      {% if user.is_admin %}
+        <em>Administrador</em>
+      {% endif %}
     </div>
 
-    <form class="period-form" method="get" action="/{{ page }}">
+    <form class="period-form"
+          method="get"
+          action="/{{ page }}">
+
       <div>
         <label>Mês</label>
-        <select name="month" onchange="showLoading(); this.form.submit()">
+
+        <select name="month"
+                onchange="showLoading(); this.form.submit()">
+
           {% for num, nome in meses %}
-            <option value="{{ num }}" {% if num == month %}selected{% endif %}>{{ nome }}</option>
+            <option value="{{ num }}"
+              {% if num == month %}selected{% endif %}>
+              {{ nome }}
+            </option>
           {% endfor %}
         </select>
       </div>
 
       <div>
         <label>Ano</label>
-        <select name="year" onchange="showLoading(); this.form.submit()">
+
+        <select name="year"
+                onchange="showLoading(); this.form.submit()">
+
           {% for y in years %}
-            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+            <option value="{{ y }}"
+              {% if y == year %}selected{% endif %}>
+              {{ y }}
+            </option>
           {% endfor %}
         </select>
       </div>
     </form>
 
     <nav class="menu">
-      <a class="{{ 'active' if page == 'dashboard' else '' }}" onclick="showLoading()" href="/dashboard?month={{ month }}&year={{ year }}">📊 Dashboard</a>
-      <a class="{{ 'active' if page == 'despesas' else '' }}" onclick="showLoading()" href="/despesas?month={{ month }}&year={{ year }}">🧾 Despesas</a>
-      <a class="{{ 'active' if page == 'categorias' else '' }}" onclick="showLoading()" href="/categorias?month={{ month }}&year={{ year }}">🏷️ Categorias</a>
-      <a class="{{ 'active' if page == 'planejamento' else '' }}" onclick="showLoading()" href="/planejamento?month={{ month }}&year={{ year }}">💰 Planejamento</a>
+
+      <a class="{{ 'active' if page == 'dashboard' else '' }}"
+         href="/dashboard?month={{ month }}&year={{ year }}"
+         hx-get="/dashboard?month={{ month }}&year={{ year }}"
+         hx-target="#mainContent"
+         hx-push-url="true"
+         onclick="showLoading(); toggleMobileMenu(false)">
+        📊 Dashboard
+      </a>
+
+      <a class="{{ 'active' if page == 'despesas' else '' }}"
+         href="/despesas?month={{ month }}&year={{ year }}"
+         hx-get="/despesas?month={{ month }}&year={{ year }}"
+         hx-target="#mainContent"
+         hx-push-url="true"
+         onclick="showLoading(); toggleMobileMenu(false)">
+        🧾 Despesas
+      </a>
+
+      <a class="{{ 'active' if page == 'categorias' else '' }}"
+         href="/categorias?month={{ month }}&year={{ year }}"
+         hx-get="/categorias?month={{ month }}&year={{ year }}"
+         hx-target="#mainContent"
+         hx-push-url="true"
+         onclick="showLoading(); toggleMobileMenu(false)">
+        🏷️ Categorias
+      </a>
+
+      <a class="{{ 'active' if page == 'planejamento' else '' }}"
+         href="/planejamento?month={{ month }}&year={{ year }}"
+         hx-get="/planejamento?month={{ month }}&year={{ year }}"
+         hx-target="#mainContent"
+         hx-push-url="true"
+         onclick="showLoading(); toggleMobileMenu(false)">
+        💰 Planejamento
+      </a>
+
     </nav>
 
-    <a class="logout" onclick="showLoading()" href="/logout">Sair</a>
+    <a class="logout"
+       onclick="showLoading()"
+       href="/logout">
+      Sair
+    </a>
+
   </aside>
 
   <main class="content">
+
     <header class="topbar">
       <div class="topbar-title">
-        <button type="button" class="mobile-menu-btn" onclick="toggleMobileMenu(true)">☰</button>
+
+        <button type="button"
+                class="mobile-menu-btn"
+                onclick="toggleMobileMenu(true)">
+          ☰
+        </button>
 
         <div>
           <h1>💳 Controle Financeiro</h1>
-          <p>Período: <strong>{{ month_label }}/{{ year }}</strong></p>
+          <p>
+            Período:
+            <strong>{{ month_label }}/{{ year }}</strong>
+          </p>
         </div>
+
       </div>
     </header>
 
-    {% if msg %}<div class="alert success">{{ msg }}</div>{% endif %}
-    {% if err %}<div class="alert error">{{ err }}</div>{% endif %}
+    <div id="mainContent">
 
-    <section class="metrics">
-      <div class="metric-card"><span>Total do mês</span><strong>{{ total | brl }}</strong></div>
-      <div class="metric-card"><span>Pago</span><strong>{{ pago | brl }}</strong></div>
-      <div class="metric-card"><span>Em aberto</span><strong>{{ aberto | brl }}</strong></div>
-      <div class="metric-card"><span>Saldo</span><strong>{{ saldo | brl }}</strong></div>
-    </section>
+      {% if msg %}
+        <div class="alert success">{{ msg }}</div>
+      {% endif %}
 
-    {% block content %}{% endblock %}
+      {% if err %}
+        <div class="alert error">{{ err }}</div>
+      {% endif %}
+
+      <section class="metrics">
+        <div class="metric-card">
+          <span>Total do mês</span>
+          <strong>{{ total | brl }}</strong>
+        </div>
+
+        <div class="metric-card">
+          <span>Pago</span>
+          <strong>{{ pago | brl }}</strong>
+        </div>
+
+        <div class="metric-card">
+          <span>Em aberto</span>
+          <strong>{{ aberto | brl }}</strong>
+        </div>
+
+        <div class="metric-card">
+          <span>Saldo</span>
+          <strong>{{ saldo | brl }}</strong>
+        </div>
+      </section>
+
+      {% block content %}{% endblock %}
+
+    </div>
+
   </main>
 
   <script>
+
     function toggleMobileMenu(open) {
       const app = document.getElementById("appBody");
+
       if (open) {
         app.classList.add("menu-open");
       } else {
@@ -97,18 +204,31 @@
 
     function showLoading() {
       const loader = document.getElementById("pageLoading");
+
       if (loader) {
         loader.style.display = "block";
       }
     }
 
+    function hideLoading() {
+      const loader = document.getElementById("pageLoading");
+
+      if (loader) {
+        loader.style.display = "none";
+      }
+    }
+
     window.addEventListener("resize", function () {
       if (window.innerWidth > 960) {
-        document.getElementById("appBody").classList.remove("menu-open");
+        document
+          .getElementById("appBody")
+          .classList
+          .remove("menu-open");
       }
     });
 
     document.addEventListener("submit", function(e) {
+
       const form = e.target;
 
       if (form.dataset.submitting === "true") {
@@ -119,9 +239,12 @@
       form.dataset.submitting = "true";
 
       const btn = form.querySelector("button[type='submit']");
+
       if (btn) {
         btn.disabled = true;
+
         btn.dataset.originalText = btn.innerText;
+
         btn.innerText = "Salvando...";
       }
 
@@ -129,22 +252,35 @@
     });
 
     window.addEventListener("pageshow", function () {
-      const loader = document.getElementById("pageLoading");
-      if (loader) {
-        loader.style.display = "none";
-      }
+
+      hideLoading();
 
       document.querySelectorAll("form").forEach(function(form) {
         form.dataset.submitting = "false";
       });
 
       document.querySelectorAll("button[type='submit']").forEach(function(btn) {
+
         btn.disabled = false;
+
         if (btn.dataset.originalText) {
           btn.innerText = btn.dataset.originalText;
         }
       });
     });
+
+    document.body.addEventListener("htmx:beforeRequest", function() {
+      showLoading();
+    });
+
+    document.body.addEventListener("htmx:afterSwap", function() {
+      hideLoading();
+    });
+
+    document.body.addEventListener("htmx:responseError", function() {
+      hideLoading();
+    });
+
   </script>
 
 </body>
