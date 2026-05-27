@@ -5,13 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Controle Financeiro</title>
   <link rel="stylesheet" href="/static/style.css">
-
-  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
 </head>
-
 <body class="app-body" id="appBody">
-
-  <div id="globalLoading" style="display:none;position:fixed;top:0;left:0;width:100%;height:3px;background:#22c55e;z-index:9999;"></div>
 
   <div class="mobile-overlay" id="mobileOverlay" onclick="toggleMobileMenu(false)"></div>
 
@@ -53,41 +48,10 @@
     </form>
 
     <nav class="menu">
-      <a class="{{ 'active' if page == 'dashboard' else '' }}"
-         href="/dashboard?month={{ month }}&year={{ year }}"
-         hx-get="/dashboard?month={{ month }}&year={{ year }}"
-         hx-target="#conteudo"
-         hx-push-url="true"
-         onclick="toggleMobileMenu(false)">
-        📊 Dashboard
-      </a>
-
-      <a class="{{ 'active' if page == 'despesas' else '' }}"
-         href="/despesas?month={{ month }}&year={{ year }}"
-         hx-get="/despesas?month={{ month }}&year={{ year }}"
-         hx-target="#conteudo"
-         hx-push-url="true"
-         onclick="toggleMobileMenu(false)">
-        🧾 Despesas
-      </a>
-
-      <a class="{{ 'active' if page == 'categorias' else '' }}"
-         href="/categorias?month={{ month }}&year={{ year }}"
-         hx-get="/categorias?month={{ month }}&year={{ year }}"
-         hx-target="#conteudo"
-         hx-push-url="true"
-         onclick="toggleMobileMenu(false)">
-        🏷️ Categorias
-      </a>
-
-      <a class="{{ 'active' if page == 'planejamento' else '' }}"
-         href="/planejamento?month={{ month }}&year={{ year }}"
-         hx-get="/planejamento?month={{ month }}&year={{ year }}"
-         hx-target="#conteudo"
-         hx-push-url="true"
-         onclick="toggleMobileMenu(false)">
-        💰 Planejamento
-      </a>
+      <a class="{{ 'active' if page == 'dashboard' else '' }}" href="/dashboard?month={{ month }}&year={{ year }}">📊 Dashboard</a>
+      <a class="{{ 'active' if page == 'despesas' else '' }}" href="/despesas?month={{ month }}&year={{ year }}">🧾 Despesas</a>
+      <a class="{{ 'active' if page == 'categorias' else '' }}" href="/categorias?month={{ month }}&year={{ year }}">🏷️ Categorias</a>
+      <a class="{{ 'active' if page == 'planejamento' else '' }}" href="/planejamento?month={{ month }}&year={{ year }}">💰 Planejamento</a>
     </nav>
 
     <a class="logout" href="/logout">Sair</a>
@@ -105,26 +69,27 @@
       </div>
     </header>
 
-    <div id="conteudo">
-      {% if msg %}<div class="alert success">{{ msg }}</div>{% endif %}
-      {% if err %}<div class="alert error">{{ err }}</div>{% endif %}
+    {% if msg %}<div class="alert success">{{ msg }}</div>{% endif %}
+    {% if err %}<div class="alert error">{{ err }}</div>{% endif %}
 
-      <section class="metrics">
-        <div class="metric-card"><span>Total do mês</span><strong>{{ total | brl }}</strong></div>
-        <div class="metric-card"><span>Pago</span><strong>{{ pago | brl }}</strong></div>
-        <div class="metric-card"><span>Em aberto</span><strong>{{ aberto | brl }}</strong></div>
-        <div class="metric-card"><span>Saldo</span><strong>{{ saldo | brl }}</strong></div>
-      </section>
+    <section class="metrics">
+      <div class="metric-card"><span>Total do mês</span><strong>{{ total | brl }}</strong></div>
+      <div class="metric-card"><span>Pago</span><strong>{{ pago | brl }}</strong></div>
+      <div class="metric-card"><span>Em aberto</span><strong>{{ aberto | brl }}</strong></div>
+      <div class="metric-card"><span>Saldo</span><strong>{{ saldo | brl }}</strong></div>
+    </section>
 
-      {% block content %}{% endblock %}
-    </div>
+    {% block content %}{% endblock %}
   </main>
 
   <script>
     function toggleMobileMenu(open) {
       const app = document.getElementById("appBody");
-      if (open) app.classList.add("menu-open");
-      else app.classList.remove("menu-open");
+      if (open) {
+        app.classList.add("menu-open");
+      } else {
+        app.classList.remove("menu-open");
+      }
     }
 
     window.addEventListener("resize", function () {
@@ -132,25 +97,6 @@
         document.getElementById("appBody").classList.remove("menu-open");
       }
     });
-
-    document.body.addEventListener("htmx:beforeRequest", function () {
-      document.getElementById("globalLoading").style.display = "block";
-    });
-
-    document.body.addEventListener("htmx:afterRequest", function () {
-      document.getElementById("globalLoading").style.display = "none";
-    });
-
-    document.addEventListener("submit", function(e) {
-      const form = e.target;
-      const btn = form.querySelector("button[type='submit']");
-      if (btn) {
-        btn.disabled = true;
-        btn.dataset.originalText = btn.innerText;
-        btn.innerText = "Salvando...";
-      }
-    });
   </script>
-
 </body>
 </html>
