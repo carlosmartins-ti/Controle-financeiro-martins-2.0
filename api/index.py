@@ -336,19 +336,7 @@ def dashboard(request: Request, month: int | None = Query(None), year: int | Non
     report = repos.get_expenses_report(user["id"], month, year) or []
     max_total = max([float(r.get("total") or 0) for r in report], default=0)
     ctx.update({"report": report, "max_total": max_total})
-
-    if request.headers.get("HX-Request"):
-        return templates.TemplateResponse(
-            request,
-            "partials/dashboard_content.html",
-            ctx
-        )
-
-    return templates.TemplateResponse(
-        request,
-        "dashboard.html",
-        ctx
-    )
+    return templates.TemplateResponse(request, "dashboard.html", ctx)
 
 
 @app.get("/despesas")
@@ -367,44 +355,14 @@ def despesas(
 
     month, year = month_year_defaults(month, year)
     ctx = base_context(request, user, month, year, "despesas")
-
     cats = repos.list_categories(user["id"]) or []
-
-    card_cat_ids = [
-        r["id"]
-        for r in cats
-        if r.get("name") and "cart" in str(r.get("name")).lower()
-    ]
-
-    credit_rows = [
-        r for r in ctx["rows"]
-        if r.get("category_id") in card_cat_ids
-    ]
-
-    open_credit = [
-        r for r in credit_rows
-        if not parse_bool(r.get("paid"))
-    ]
-
-    total_fatura = sum(
-        float(r.get("amount") or 0)
-        for r in open_credit
-    )
-
-    visible_rows = sorted(
-        ctx["rows"],
-        key=lambda r: (
-            1 if parse_bool(r.get("paid")) else 0,
-            str(r.get("due_date") or "")
-        )
-    )
-
+    card_cat_ids = [r["id"] for r in cats if r.get("name") and "cart" in str(r.get("name")).lower()]
+    credit_rows = [r for r in ctx["rows"] if r.get("category_id") in card_cat_ids]
+    open_credit = [r for r in credit_rows if not parse_bool(r.get("paid"))]
+    total_fatura = sum(float(r.get("amount") or 0) for r in open_credit)
+    visible_rows = sorted(ctx["rows"], key=lambda r: (1 if parse_bool(r.get("paid")) else 0, str(r.get("due_date") or "")))
     if hide_paid:
-        visible_rows = [
-            r for r in visible_rows
-            if not parse_bool(r.get("paid"))
-        ]
-
+        visible_rows = [r for r in visible_rows if not parse_bool(r.get("paid"))]
     ctx.update({
         "categories": cats,
         "hide_paid": hide_paid,
@@ -413,19 +371,7 @@ def despesas(
         "open_credit": open_credit,
         "total_fatura": total_fatura,
     })
-
-    if request.headers.get("HX-Request"):
-        return templates.TemplateResponse(
-            request,
-            "partials/despesas_content.html",
-            ctx
-        )
-
-    return templates.TemplateResponse(
-        request,
-        "despesas.html",
-        ctx
-    )
+    return templates.TemplateResponse(request, "despesas.html", ctx)
 
 
 @app.post("/despesas/add")
@@ -669,19 +615,7 @@ def categorias(request: Request, month: int | None = Query(None), year: int | No
     month, year = month_year_defaults(month, year)
     ctx = base_context(request, user, month, year, "categorias")
     ctx.update({"categories": repos.list_categories(user["id"]) or []})
-
-    if request.headers.get("HX-Request"):
-        return templates.TemplateResponse(
-            request,
-            "partials/categorias_content.html",
-            ctx
-        )
-
-    return templates.TemplateResponse(
-        request,
-        "categorias.html",
-        ctx
-    )
+    return templates.TemplateResponse(request, "categorias.html", ctx)
 
 
 @app.post("/categorias/add")
@@ -722,19 +656,7 @@ def planejamento(request: Request, month: int | None = Query(None), year: int | 
 
     month, year = month_year_defaults(month, year)
     ctx = base_context(request, user, month, year, "planejamento")
-
-    if request.headers.get("HX-Request"):
-        return templates.TemplateResponse(
-            request,
-            "partials/planejamento_content.html",
-            ctx
-        )
-
-    return templates.TemplateResponse(
-        request,
-        "planejamento.html",
-        ctx
-    )
+    return templates.TemplateResponse(request, "planejamento.html", ctx)
 
 
 @app.post("/planejamento/save")
