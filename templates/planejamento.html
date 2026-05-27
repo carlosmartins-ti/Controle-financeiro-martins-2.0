@@ -1,12 +1,5 @@
 {% extends "base.html" %}
+
 {% block content %}
-<section class="panel narrow">
-  <div class="panel-head"><div><h2>💰 Planejamento</h2><p>Defina sua renda e meta de gastos para o mês.</p></div></div>
-  <form class="simple-form" method="post" action="/planejamento/save">
-    <input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="year" value="{{ year }}">
-    <label>Renda<input name="income" type="number" step="0.01" value="{{ renda }}"></label>
-    <label>Meta de gastos<input name="expense_goal" type="number" step="0.01" value="{{ budget.expense_goal }}"></label>
-    <button>Salvar</button>
-  </form>
-</section>
+  {% include "partials/planejamento_content.html" %}
 {% endblock %}
