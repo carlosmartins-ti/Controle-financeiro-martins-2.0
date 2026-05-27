@@ -1,0 +1,229 @@
+<style>
+  .chart-card{
+    background:#fff;
+    border:1px solid #e8edf5;
+    border-radius:24px;
+    padding:18px;
+    box-shadow:0 8px 25px rgba(15,23,42,.04);
+  }
+
+  @media (max-width: 980px){
+    .chart-card{
+      padding:10px;
+      border-radius:18px;
+      overflow:hidden;
+    }
+
+    #pieChart{
+      min-height:430px !important;
+    }
+
+    @media (prefers-color-scheme: dark){
+      .chart-card{
+        background:#0b1220;
+        border-color:rgba(255,255,255,.09);
+        box-shadow:none;
+      }
+    }
+  }
+</style>
+
+<section class="panel">
+  <div class="panel-head">
+    <div>
+      <h2>📊 Dashboard</h2>
+      <p>Resumo por categoria no período selecionado.</p>
+    </div>
+  </div>
+
+  {% if report %}
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+    <div class="chart-card">
+      <div id="pieChart" style="width:100%;height:100%;min-height:430px;"></div>
+    </div>
+
+    <script>
+      const chartItems = [
+        {% for r in report %}
+          {
+            label: {{ r.name|tojson }},
+            value: {{ (r.total or 0)|float }}
+          }{{ "," if not loop.last }}
+        {% endfor %}
+      ];
+
+      const brl = new Intl.NumberFormat("pt-BR", {
+        style: "currency",
+        currency: "BRL"
+      });
+
+      const colors = [
+        "#1d4ed8", "#7cc4f8", "#ff2d2d", "#ffa0a0", "#2fb69f",
+        "#74ee9b", "#ff8c00", "#ffd16a", "#6f42c1", "#d5dbe6",
+        "#0ea5e9", "#10b981", "#f97316", "#ec4899", "#64748b"
+      ];
+
+      const fullLabels = chartItems.map(i => i.label);
+      const fullValues = chartItems.map(i => Number(i.value));
+
+      let selectedLabel = null;
+      let lastTapTime = 0;
+      let lastTapLabel = null;
+
+      function buildData(labelsToShow, valuesToShow) {
+        return [{
+          type: "pie",
+          labels: labelsToShow,
+          values: valuesToShow,
+          textinfo: "percent",
+          textposition: "inside",
+          insidetextorientation: "auto",
+          sort: false,
+          hole: 0,
+          marker: {
+            colors: labelsToShow.map((label) => {
+              const originalIndex = fullLabels.indexOf(label);
+              return colors[originalIndex % colors.length];
+            }),
+            line: {
+              color: "#ffffff",
+              width: 2
+            }
+          },
+          hovertemplate:
+            "<b>%{label}</b><br>" +
+            "Valor: %{customdata}<br>" +
+            "Percentual: %{percent}<extra></extra>",
+          customdata: valuesToShow.map(v => brl.format(v))
+        }];
+      }
+
+      function buildLayout() {
+        const mobile = window.innerWidth < 960;
+        const darkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+        const chartBg = mobile && darkMode ? "#0b1220" : "#ffffff";
+        const chartText = mobile && darkMode ? "#e5e7eb" : "#0f172a";
+
+        return {
+          margin: mobile
+            ? { t: 8, r: 8, b: 110, l: 8 }
+            : { t: 10, r: 10, b: 10, l: 10 },
+
+          showlegend: true,
+
+          legend: mobile
+            ? {
+                orientation: "h",
+                x: 0,
+                y: -0.10,
+                xanchor: "left",
+                yanchor: "top",
+                font: { size: 11, color: chartText },
+                bgcolor: "rgba(0,0,0,0)"
+              }
+            : {
+                orientation: "v",
+                x: 1.02,
+                y: 0.5,
+                xanchor: "left",
+                yanchor: "middle",
+                font: { size: 14, color: chartText },
+                bgcolor: "rgba(0,0,0,0)"
+              },
+
+          paper_bgcolor: chartBg,
+          plot_bgcolor: chartBg,
+          font: { color: chartText },
+          height: mobile ? 430 : 520
+        };
+      }
+
+      function renderChart(labelsToShow, valuesToShow) {
+        const config = {
+          responsive: true,
+          displayModeBar: false,
+          doubleClick: false
+        };
+
+        return Plotly.react(
+          "pieChart",
+          buildData(labelsToShow, valuesToShow),
+          buildLayout(),
+          config
+        );
+      }
+
+      function toggleCategory(clickedLabel) {
+        const idx = fullLabels.indexOf(clickedLabel);
+
+        if (idx === -1) return;
+
+        if (selectedLabel === clickedLabel) {
+          selectedLabel = null;
+          renderChart(fullLabels, fullValues).then(bindChartClick);
+        } else {
+          selectedLabel = clickedLabel;
+          renderChart([fullLabels[idx]], [fullValues[idx]]).then(bindChartClick);
+        }
+      }
+
+      function bindChartClick() {
+        const chart = document.getElementById("pieChart");
+
+        if (chart.removeAllListeners) {
+          chart.removeAllListeners("plotly_click");
+        }
+
+        chart.on("plotly_click", function(evt) {
+          if (!evt || !evt.points || !evt.points.length) return;
+
+          const clickedLabel = evt.points[0].label;
+          const pointNumber = evt.points[0].pointNumber;
+          const now = Date.now();
+
+          if (lastTapLabel === clickedLabel && (now - lastTapTime) < 450) {
+            toggleCategory(clickedLabel);
+            lastTapTime = 0;
+            lastTapLabel = null;
+            return;
+          }
+
+          lastTapTime = now;
+          lastTapLabel = clickedLabel;
+
+          Plotly.Fx.hover("pieChart", [
+            { curveNumber: 0, pointNumber: pointNumber }
+          ]);
+
+          setTimeout(function(){
+            if (lastTapLabel === clickedLabel) {
+              Plotly.Fx.unhover("pieChart");
+              lastTapTime = 0;
+              lastTapLabel = null;
+            }
+          }, 2200);
+        });
+      }
+
+      function startChart() {
+        renderChart(fullLabels, fullValues).then(bindChartClick);
+      }
+
+      startChart();
+
+      window.addEventListener("resize", function() {
+        if (selectedLabel) {
+          const idx = fullLabels.indexOf(selectedLabel);
+          renderChart([fullLabels[idx]], [fullValues[idx]]).then(bindChartClick);
+        } else {
+          renderChart(fullLabels, fullValues).then(bindChartClick);
+        }
+      });
+    </script>
+
+  {% else %}
+    <div class="empty">Nenhuma despesa cadastrada nesse mês.</div>
+  {% endif %}
+</section>
