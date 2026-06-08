@@ -37,6 +37,11 @@ SECURITY_QUESTIONS = [
 ]
 
 app = FastAPI(title="Controle Financeiro")
+from fastapi.responses import PlainTextResponse
+
+@app.get("/google4e0fdb13c7f95daf.html", response_class=PlainTextResponse)
+def google_verification():
+    return "google-site-verification: google4e0fdb13c7f95daf.html"
 app.add_middleware(
     SessionMiddleware,
     secret_key=os.getenv("SECRET_KEY", "troque-essa-chave-em-producao"),
