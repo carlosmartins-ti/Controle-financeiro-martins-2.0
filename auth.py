@@ -41,6 +41,7 @@ def create_user(username, password, security_question, security_answer):
         INSERT INTO users
             (username, password_hash, security_question, security_answer_hash, created_at, is_superuser)
         VALUES (%s, %s, %s, %s, %s, %s)
+        RETURNING id
         """,
         (
             username,
@@ -52,9 +53,11 @@ def create_user(username, password, security_question, security_answer):
         )
     )
 
+    row = cur.fetchone()
     conn.commit()
     cur.close()
     conn.close()
+    return int(row["id"])
 
 
 # -------------------- AUTHENTICATE NORMAL --------------------
