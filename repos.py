@@ -1,5 +1,8 @@
 from database import get_connection
 from datetime import datetime
+from decimal import Decimal
+
+from psycopg2.extras import execute_values
 
 # ================= DEFAULT CATEGORIES =================
 
@@ -66,22 +69,27 @@ def clear_remember_token(user_id):
 # ================= CATEGORIES =================
 
 def seed_default_categories(user_id):
+    """Insere todas as categorias padrão em uma única ida ao banco."""
     conn = get_connection()
     cur = conn.cursor()
 
-    for name in DEFAULT_CATEGORIES:
+    try:
         cur.execute(
             """
             INSERT INTO categories (user_id, name, created_at)
-            VALUES (%s, %s, %s)
+            SELECT %s, category_name, NOW()
+            FROM unnest(%s::text[]) AS categories_to_add(category_name)
             ON CONFLICT (user_id, name) DO NOTHING
             """,
-            (user_id, name, datetime.now())
+            (user_id, DEFAULT_CATEGORIES)
         )
-
-    conn.commit()
-    cur.close()
-    conn.close()
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
 
 
 def list_categories(user_id):
@@ -144,40 +152,61 @@ def add_payment(
     installments=1,
     parcel_type="total"
 ):
-
+    """Cadastra uma compra e suas parcelas com um único INSERT em lote."""
     conn = get_connection()
     cur = conn.cursor()
 
-    amount = float(amount)
-    installments = int(installments)
+    try:
+        amount = Decimal(str(amount))
+        installments = max(1, int(installments))
 
-    credit_group = int(datetime.now().timestamp())
+        # Mantido como INTEGER para compatibilidade com a estrutura existente.
+        credit_group = int(datetime.now().timestamp())
 
-    if is_credit and installments > 1:
-
-        if parcel_type == "total":
-            parcel_value = round(amount / installments, 2)
+        if is_credit and installments > 1:
+            if parcel_type == "total":
+                parcel_value = (amount / installments).quantize(Decimal("0.01"))
+            else:
+                parcel_value = amount.quantize(Decimal("0.01"))
         else:
-            parcel_value = round(amount, 2)
+            parcel_value = amount.quantize(Decimal("0.01"))
 
-    else:
-        parcel_value = round(amount, 2)
+        base_due = datetime.fromisoformat(str(due_date)).date()
+        purchase_dt = (
+            datetime.fromisoformat(str(purchase_date)).date()
+            if purchase_date else None
+        )
 
-    base_date = datetime.fromisoformat(str(due_date))
-    purchase_dt = datetime.fromisoformat(str(purchase_date)).date() if purchase_date else None
+        values = []
 
-    for i in range(installments):
+        for index in range(1, installments + 1):
+            parcel_due = _add_months_safe(base_due, index - 1)
+            parcel_description = (
+                f"{description} ({index}/{installments})"
+                if installments > 1 else description
+            )
 
-        parcel_month = month + i
-        parcel_year = year
+            values.append(
+                (
+                    user_id,
+                    parcel_description,
+                    category_id,
+                    parcel_value,
+                    purchase_dt,
+                    parcel_due,
+                    parcel_due.month,
+                    parcel_due.year,
+                    False,
+                    None,
+                    bool(is_credit),
+                    installments,
+                    index,
+                    credit_group,
+                )
+            )
 
-        while parcel_month > 12:
-            parcel_month -= 12
-            parcel_year += 1
-
-        parcel_due = base_date.replace(month=parcel_month, year=parcel_year)
-
-        cur.execute(
+        execute_values(
+            cur,
             """
             INSERT INTO payments (
                 user_id,
@@ -195,31 +224,117 @@ def add_payment(
                 installments,
                 installment_index,
                 credit_group
-            )
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW(),%s,%s,%s,%s)
+            ) VALUES %s
             """,
-            (
-                user_id,
-                f"{description} ({i+1}/{installments})" if installments > 1 else description,
-                category_id,
-                parcel_value,
-                purchase_dt,
-                parcel_due.date(),
-                parcel_month,
-                parcel_year,
-                False,
-                None,
-                bool(is_credit),
-                installments,
-                i + 1,
-                credit_group
-            )
+            values,
+            template="(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW(),%s,%s,%s,%s)",
+            page_size=100,
         )
 
-    conn.commit()
-    cur.close()
-    conn.close()
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
 
+
+
+def get_month_snapshot(user_id, month, year, include_categories=False):
+    """
+    Busca os dados necessários da página reutilizando a mesma conexão.
+    Isso evita múltiplos handshakes SSL com o PostgreSQL remoto.
+    """
+    conn = get_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute(
+            """
+            SELECT
+                p.id,
+                p.description,
+                p.amount,
+                p.purchase_date,
+                p.due_date,
+                p.paid,
+                p.paid_date,
+                p.category_id,
+                c.name AS category,
+                p.is_credit,
+                p.installments,
+                p.installment_index,
+                p.credit_group
+            FROM payments p
+            LEFT JOIN categories c
+              ON c.id = p.category_id
+             AND c.user_id = p.user_id
+            WHERE p.user_id = %s
+              AND p.month = %s
+              AND p.year = %s
+            ORDER BY p.due_date, p.id
+            """,
+            (user_id, month, year),
+        )
+        rows = cur.fetchall()
+
+        cur.execute(
+            """
+            SELECT income, expense_goal
+            FROM budgets
+            WHERE user_id = %s AND month = %s AND year = %s
+            """,
+            (user_id, month, year),
+        )
+        budget_row = cur.fetchone()
+
+        categories = []
+        if include_categories:
+            cur.execute(
+                """
+                SELECT id, name
+                FROM categories
+                WHERE user_id = %s
+                ORDER BY name
+                """,
+                (user_id,),
+            )
+            categories = cur.fetchall()
+
+        budget = {
+            "income": float(budget_row["income"]) if budget_row else 0.0,
+            "expense_goal": float(budget_row["expense_goal"]) if budget_row else 0.0,
+        }
+
+        return {
+            "rows": rows,
+            "budget": budget,
+            "categories": categories,
+        }
+    finally:
+        cur.close()
+        conn.close()
+
+
+def build_expenses_report(rows):
+    """Agrupa as despesas já carregadas, sem executar uma consulta adicional."""
+    grouped = {}
+
+    for row in rows or []:
+        name = row.get("category") or row.get("description") or "Sem categoria"
+        amount = float(row.get("amount") or 0)
+        item = grouped.setdefault(
+            name,
+            {"name": name, "total": 0.0, "paid_total": 0.0, "open_total": 0.0},
+        )
+        item["total"] += amount
+        if bool(row.get("paid")):
+            item["paid_total"] += amount
+        else:
+            item["open_total"] += amount
+
+    return [grouped[key] for key in sorted(grouped, key=str.casefold)]
 
 def list_payments(user_id, month, year):
     conn = get_connection()
