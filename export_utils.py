@@ -1,21 +1,40 @@
 import io
-import pandas as pd
+from collections.abc import Mapping
 
+from openpyxl import Workbook
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.pagesizes import A4, landscape
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 
-def export_excel_bytes(df: pd.DataFrame, sheet_name: str = "Pagamentos") -> bytes:
+def _records_list(records):
+    return [dict(row) if isinstance(row, Mapping) else dict(row) for row in (records or [])]
+
+
+def export_excel_bytes(records, sheet_name: str = "Pagamentos") -> bytes:
+    """Gera Excel diretamente, sem carregar a biblioteca pandas."""
+    rows = _records_list(records)
     output = io.BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name=sheet_name)
+
+    workbook = Workbook(write_only=True)
+    sheet = workbook.create_sheet(title=sheet_name[:31] or "Pagamentos")
+
+    if rows:
+        headers = list(rows[0].keys())
+        sheet.append(headers)
+
+        for row in rows:
+            sheet.append([row.get(header) for header in headers])
+
+    workbook.save(output)
     return output.getvalue()
 
 
-def export_pdf_bytes(df: pd.DataFrame, title: str = "Pagamentos") -> bytes:
+def export_pdf_bytes(records, title: str = "Pagamentos") -> bytes:
+    """Gera PDF a partir de uma lista de registros."""
+    rows = _records_list(records)
     output = io.BytesIO()
 
     doc = SimpleDocTemplate(
@@ -68,74 +87,52 @@ def export_pdf_bytes(df: pd.DataFrame, title: str = "Pagamentos") -> bytes:
         alignment=TA_LEFT,
     )
 
-    story = []
+    story = [
+        Paragraph(title, title_style),
+        Paragraph("Relatório profissional de despesas por período", subtitle_style),
+    ]
 
-    story.append(Paragraph(title, title_style))
-    story.append(Paragraph("Relatório profissional de despesas por período", subtitle_style))
-
-    if df.empty:
+    if not rows:
         story.append(Paragraph("Sem registros no filtro atual.", styles["Normal"]))
         doc.build(story)
         return output.getvalue()
 
-    df = df.copy()
+    def order_key(row):
+        status = str(row.get("Status") or "")
+        description = str(row.get("Descrição") or "")
+        category = str(row.get("Categoria") or "")
+        status_order = 1 if status == "Pago" else 0
+        installment_order = 0 if "(" in description and "/" in description and ")" in description else 1
+        return status_order, category.casefold(), installment_order, description.casefold()
 
-    # Ordenação profissional
-    if "Status" in df.columns and "Categoria" in df.columns and "Descrição" in df.columns:
-        df["_status_ordem"] = df["Status"].apply(lambda x: 1 if x == "Pago" else 0)
+    rows.sort(key=order_key)
+    headers = list(rows[0].keys())
 
-        df["_tipo_ordem"] = df["Descrição"].astype(str).apply(
-            lambda x: 0 if "(" in x and "/" in x and ")" in x else 1
-        )
+    story.append(Paragraph(f"Total de registros: {len(rows)}", subtitle_style))
 
-        df = df.sort_values(
-            by=["_status_ordem", "Categoria", "_tipo_ordem", "Descrição"],
-            ascending=[True, True, True, True],
-            kind="mergesort"
-        )
-
-        df = df.drop(columns=["_status_ordem", "_tipo_ordem"], errors="ignore")
-
-    total_registros = len(df)
-
-    if "Valor" in df.columns:
-        story.append(Paragraph(f"Total de registros: {total_registros}", subtitle_style))
-    else:
-        story.append(Paragraph(f"Total de registros: {total_registros}", subtitle_style))
-
-    data = []
-
-    data.append([Paragraph(str(col), header_style) for col in df.columns])
-
-    for _, row in df.iterrows():
+    data = [[Paragraph(str(column), header_style) for column in headers]]
+    for row in rows:
         data.append([
-            Paragraph(str(value), cell_style)
-            for value in row.tolist()
+            Paragraph(str(row.get(column, "") if row.get(column, "") is not None else ""), cell_style)
+            for column in headers
         ])
 
     col_widths = []
-
-    for col in df.columns:
-        if col == "Descrição":
+    for column in headers:
+        if column == "Descrição":
             col_widths.append(235)
-        elif col == "Categoria":
+        elif column == "Categoria":
             col_widths.append(155)
-        elif col == "Valor":
+        elif column == "Valor":
             col_widths.append(75)
-        elif col in ["Compra", "Vencimento"]:
+        elif column in ["Compra", "Vencimento"]:
             col_widths.append(80)
-        elif col == "Status":
+        elif column == "Status":
             col_widths.append(75)
         else:
             col_widths.append(90)
 
-    tbl = Table(
-        data,
-        colWidths=col_widths,
-        repeatRows=1,
-        hAlign="CENTER"
-    )
-
+    table = Table(data, colWidths=col_widths, repeatRows=1, hAlign="CENTER")
     style = TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#07142d")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
@@ -143,33 +140,25 @@ def export_pdf_bytes(df: pd.DataFrame, title: str = "Pagamentos") -> bytes:
         ("FONTSIZE", (0, 0), (-1, 0), 8),
         ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
         ("TOPPADDING", (0, 0), (-1, 0), 8),
-
         ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#cbd5e1")),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-
         ("FONTSIZE", (0, 1), (-1, -1), 8),
         ("TOPPADDING", (0, 1), (-1, -1), 5),
         ("BOTTOMPADDING", (0, 1), (-1, -1), 5),
     ])
 
-    for i in range(1, len(data)):
-        if i % 2 == 0:
-            style.add("BACKGROUND", (0, i), (-1, i), colors.HexColor("#f8fafc"))
-        else:
-            style.add("BACKGROUND", (0, i), (-1, i), colors.white)
+    for index in range(1, len(data)):
+        background = colors.HexColor("#f8fafc") if index % 2 == 0 else colors.white
+        style.add("BACKGROUND", (0, index), (-1, index), background)
 
-    if "Status" in df.columns:
-        status_col = list(df.columns).index("Status")
+    if "Status" in headers:
+        status_column = headers.index("Status")
+        for index, row in enumerate(rows, start=1):
+            text_color = colors.HexColor("#15803d") if "Pago" in str(row.get("Status")) else colors.HexColor("#b45309")
+            style.add("TEXTCOLOR", (status_column, index), (status_column, index), text_color)
 
-        for i, value in enumerate(df["Status"].astype(str).tolist(), start=1):
-            if "Pago" in value:
-                style.add("TEXTCOLOR", (status_col, i), (status_col, i), colors.HexColor("#15803d"))
-            else:
-                style.add("TEXTCOLOR", (status_col, i), (status_col, i), colors.HexColor("#b45309"))
-
-    tbl.setStyle(style)
-
-    story.append(tbl)
+    table.setStyle(style)
+    story.append(table)
     story.append(Spacer(1, 12))
 
     footer_style = ParagraphStyle(
@@ -180,7 +169,6 @@ def export_pdf_bytes(df: pd.DataFrame, title: str = "Pagamentos") -> bytes:
         alignment=TA_CENTER,
         textColor=colors.HexColor("#64748b"),
     )
-
     story.append(Paragraph("Desenvolvido por Carlos Martins", footer_style))
 
     doc.build(story)
