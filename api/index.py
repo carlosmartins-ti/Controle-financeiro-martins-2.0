@@ -2,14 +2,13 @@ import os
 from datetime import date, datetime
 from io import BytesIO
 
-import pandas as pd
 from fastapi import FastAPI, Request, Form, Query
 from fastapi.responses import RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
-from database import init_db, get_connection
+from database import init_db
 from auth import (
     authenticate,
     authenticate_full,
@@ -22,7 +21,6 @@ from auth import (
     admin_reset_password
 )
 import repos
-from export_utils import export_pdf_bytes, export_excel_bytes
 
 ADMIN_USERNAME = "carlos.martins"
 MESES = [
@@ -96,11 +94,9 @@ def current_user(request: Request):
 
 
 def require_login(request: Request):
-    user = current_user(request)
-    if not user:
-        return None
-    repos.seed_default_categories(user["id"])
-    return user
+    # As categorias padrão já são garantidas no login/cadastro.
+    # Não acesse o banco apenas para validar uma sessão já assinada.
+    return current_user(request)
 
 
 def require_superuser(request: Request):
@@ -124,12 +120,22 @@ def month_year_defaults(month: int | None, year: int | None):
     return month or today.month, year or today.year
 
 
-def base_context(request: Request, user: dict, month: int, year: int, page: str):
-    rows = repos.list_payments(user["id"], month, year) or []
+def base_context(
+    request: Request,
+    user: dict,
+    month: int,
+    year: int,
+    page: str,
+    include_categories: bool = False,
+):
+    snapshot = repos.get_month_snapshot(
+        user["id"], month, year, include_categories=include_categories
+    )
+    rows = snapshot["rows"] or []
     total = sum(float(r.get("amount") or 0) for r in rows)
     pago = sum(float(r.get("amount") or 0) for r in rows if parse_bool(r.get("paid")))
     aberto = total - pago
-    budget = repos.get_budget(user["id"], month, year)
+    budget = snapshot["budget"]
     renda = float(budget.get("income") or 0)
     saldo = renda - total
     return {
@@ -142,6 +148,7 @@ def base_context(request: Request, user: dict, month: int, year: int, page: str)
         "meses": list(enumerate(MESES, start=1)),
         "years": list(range(date.today().year - 2, date.today().year + 3)),
         "rows": rows,
+        "categories": snapshot["categories"],
         "total": total,
         "pago": pago,
         "aberto": aberto,
@@ -155,7 +162,10 @@ def base_context(request: Request, user: dict, month: int, year: int, page: str)
 
 @app.on_event("startup")
 def startup():
-    init_db()
+    # DDL em todo cold start da Vercel aumenta muito o tempo da primeira tela.
+    # Ative temporariamente AUTO_INIT_DB=1 somente para criar/migrar a estrutura.
+    if os.getenv("AUTO_INIT_DB", "0").strip().lower() in {"1", "true", "yes", "on"}:
+        init_db()
 
 
 @app.get("/")
@@ -208,8 +218,7 @@ def signup(
     security_answer: str = Form(""),
 ):
     try:
-        create_user(username, password, security_question, security_answer)
-        uid = authenticate(username, password)
+        uid = create_user(username, password, security_question, security_answer)
         request.session["user_id"] = int(uid)
         request.session["username"] = username.strip().lower()
         request.session["is_superuser"] = False
@@ -338,7 +347,7 @@ def dashboard(request: Request, month: int | None = Query(None), year: int | Non
 
     month, year = month_year_defaults(month, year)
     ctx = base_context(request, user, month, year, "dashboard")
-    report = repos.get_expenses_report(user["id"], month, year) or []
+    report = repos.build_expenses_report(ctx["rows"])
     max_total = max([float(r.get("total") or 0) for r in report], default=0)
     ctx.update({"report": report, "max_total": max_total})
     return templates.TemplateResponse(request, "dashboard.html", ctx)
@@ -359,8 +368,10 @@ def despesas(
         return redirect("/admin/usuarios")
 
     month, year = month_year_defaults(month, year)
-    ctx = base_context(request, user, month, year, "despesas")
-    cats = repos.list_categories(user["id"]) or []
+    ctx = base_context(
+        request, user, month, year, "despesas", include_categories=True
+    )
+    cats = ctx["categories"] or []
     card_cat_ids = [r["id"] for r in cats if r.get("name") and "cart" in str(r.get("name")).lower()]
     credit_rows = [r for r in ctx["rows"] if r.get("category_id") in card_cat_ids]
     open_credit = [r for r in credit_rows if not parse_bool(r.get("paid"))]
@@ -547,9 +558,11 @@ def download_pdf(request: Request, month: int, year: int):
     if bool(user.get("is_superuser")):
         return redirect("/admin/usuarios")
 
+    from export_utils import export_pdf_bytes
+
     rows = repos.list_payments(user["id"], month, year) or []
 
-    df = pd.DataFrame([
+    records = [
         {
             "Descrição": r.get("description"),
             "Categoria": r.get("category") or "",
@@ -559,27 +572,9 @@ def download_pdf(request: Request, month: int, year: int):
             "Status": "Pago" if parse_bool(r.get("paid")) else "Em aberto",
         }
         for r in rows
-    ])
+    ]
 
-    if not df.empty:
-        df["_status_ordem"] = df["Status"].apply(lambda x: 1 if x == "Pago" else 0)
-
-        df["_parcelada_ordem"] = df["Descrição"].astype(str).apply(
-            lambda x: 0 if "(" in x and "/" in x and ")" in x else 1
-        )
-
-        df = df.sort_values(
-            by=["_status_ordem", "Categoria", "_parcelada_ordem", "Descrição"],
-            ascending=[True, True, True, True],
-            kind="mergesort"
-        )
-
-        df = df.drop(
-            columns=["_status_ordem", "_parcelada_ordem"],
-            errors="ignore"
-        )
-
-    pdf = export_pdf_bytes(df, f"Despesas - {MESES[month - 1]}/{year}")
+    pdf = export_pdf_bytes(records, f"Despesas - {MESES[month - 1]}/{year}")
 
     return StreamingResponse(
         BytesIO(pdf),
@@ -598,9 +593,10 @@ def download_excel(request: Request, month: int, year: int):
     if bool(user.get("is_superuser")):
         return redirect("/admin/usuarios")
 
+    from export_utils import export_excel_bytes
+
     rows = repos.list_payments(user["id"], month, year) or []
-    df = pd.DataFrame(rows)
-    data = export_excel_bytes(df, "Pagamentos")
+    data = export_excel_bytes(rows, "Pagamentos")
     return StreamingResponse(
         BytesIO(data),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -618,8 +614,9 @@ def categorias(request: Request, month: int | None = Query(None), year: int | No
         return redirect("/admin/usuarios")
 
     month, year = month_year_defaults(month, year)
-    ctx = base_context(request, user, month, year, "categorias")
-    ctx.update({"categories": repos.list_categories(user["id"]) or []})
+    ctx = base_context(
+        request, user, month, year, "categorias", include_categories=True
+    )
     return templates.TemplateResponse(request, "categorias.html", ctx)
 
 
