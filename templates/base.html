@@ -97,6 +97,23 @@
         document.getElementById("appBody").classList.remove("menu-open");
       }
     });
+
+    document.addEventListener("submit", function (event) {
+      const form = event.target;
+      if (!(form instanceof HTMLFormElement) || form.method.toLowerCase() !== "post") {
+        return;
+      }
+
+      const button = event.submitter || form.querySelector('button[type="submit"], button:not([type])');
+      if (!button || button.disabled) {
+        return;
+      }
+
+      button.dataset.originalText = button.textContent;
+      button.textContent = "Salvando...";
+      button.disabled = true;
+      form.setAttribute("aria-busy", "true");
+    });
   </script>
 </body>
 </html>
