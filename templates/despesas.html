@@ -43,45 +43,58 @@
 
       <div class="invoice-complete" id="invoiceComplete" {% if open_credit %}hidden{% endif %}>✅ Todas as faturas deste período estão pagas.</div>
 
-      <div class="invoice-more-actions">
-        <button type="button" class="invoice-expand-button" id="toggleInvoicePayOptions" aria-expanded="false" {% if not open_credit %}hidden{% endif %}>▸ Escolher cartão</button>
-        <button type="button" class="invoice-expand-button undo" id="toggleInvoiceUndoOptions" aria-expanded="false" {% if not paid_credit %}hidden{% endif %}>↩ Desfazer pagamento</button>
-      </div>
+      <button
+        type="button"
+        class="invoice-mobile-options-toggle"
+        id="toggleInvoiceMobileOptions"
+        aria-expanded="false"
+        {% if not open_credit and not paid_credit %}hidden{% endif %}
+      >
+        <span>Mais opções da fatura</span>
+        <span class="invoice-mobile-options-chevron" aria-hidden="true">⌄</span>
+      </button>
 
-      <div class="invoice-expand-panel" id="invoicePayOptions" hidden>
-        <form method="post" action="/despesas/credit/pay" id="invoicePayCategoryForm" data-ajax="true">
-          <input type="hidden" name="month" value="{{ month }}">
-          <input type="hidden" name="year" value="{{ year }}">
-          <label for="invoicePayCategory">Qual cartão deseja pagar?</label>
-          <select name="category_id" id="invoicePayCategory" required>
-            <option value="">Selecione o cartão</option>
-            {% for invoice in invoice_options %}
-              {% if invoice.has_open %}
-              <option value="{{ invoice.id }}">{{ invoice.name }} — {{ invoice.open_total | brl }}</option>
-              {% endif %}
-            {% endfor %}
-          </select>
-          <button type="submit">Pagar cartão selecionado</button>
-        </form>
-      </div>
+      <div class="invoice-secondary-actions" id="invoiceSecondaryActions">
+        <div class="invoice-more-actions">
+          <button type="button" class="invoice-expand-button" id="toggleInvoicePayOptions" aria-expanded="false" {% if not open_credit %}hidden{% endif %}>▸ Escolher cartão</button>
+          <button type="button" class="invoice-expand-button undo" id="toggleInvoiceUndoOptions" aria-expanded="false" {% if not paid_credit %}hidden{% endif %}>↩ Desfazer pagamento</button>
+        </div>
 
-      <div class="invoice-expand-panel" id="invoiceUndoOptions" hidden>
-        <form method="post" action="/despesas/credit/unpay" id="invoiceUndoForm" data-ajax="true">
-          <input type="hidden" name="month" value="{{ month }}">
-          <input type="hidden" name="year" value="{{ year }}">
-          <label for="invoiceUndoCategory">O que deseja desfazer?</label>
-          <select name="category_id" id="invoiceUndoCategory" required>
-            {% if paid_credit %}
-            <option value="all">Todas as faturas — {{ total_fatura_paga | brl }}</option>
-            {% endif %}
-            {% for invoice in invoice_options %}
-              {% if invoice.paid_total > 0 %}
-              <option value="{{ invoice.id }}">{{ invoice.name }} — {{ invoice.paid_total | brl }}</option>
+        <div class="invoice-expand-panel" id="invoicePayOptions" hidden>
+          <form method="post" action="/despesas/credit/pay" id="invoicePayCategoryForm" data-ajax="true">
+            <input type="hidden" name="month" value="{{ month }}">
+            <input type="hidden" name="year" value="{{ year }}">
+            <label for="invoicePayCategory">Qual cartão deseja pagar?</label>
+            <select name="category_id" id="invoicePayCategory" required>
+              <option value="">Selecione o cartão</option>
+              {% for invoice in invoice_options %}
+                {% if invoice.has_open %}
+                <option value="{{ invoice.id }}">{{ invoice.name }} — {{ invoice.open_total | brl }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+            <button type="submit">Pagar cartão selecionado</button>
+          </form>
+        </div>
+
+        <div class="invoice-expand-panel" id="invoiceUndoOptions" hidden>
+          <form method="post" action="/despesas/credit/unpay" id="invoiceUndoForm" data-ajax="true">
+            <input type="hidden" name="month" value="{{ month }}">
+            <input type="hidden" name="year" value="{{ year }}">
+            <label for="invoiceUndoCategory">O que deseja desfazer?</label>
+            <select name="category_id" id="invoiceUndoCategory" required>
+              {% if paid_credit %}
+              <option value="all">Todas as faturas — {{ total_fatura_paga | brl }}</option>
               {% endif %}
-            {% endfor %}
-          </select>
-          <button type="submit" class="undo-action">Desfazer selecionado</button>
-        </form>
+              {% for invoice in invoice_options %}
+                {% if invoice.paid_total > 0 %}
+                <option value="{{ invoice.id }}">{{ invoice.name }} — {{ invoice.paid_total | brl }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+            <button type="submit" class="undo-action">Desfazer selecionado</button>
+          </form>
+        </div>
       </div>
     </div>
   </div>
@@ -401,14 +414,32 @@ function setInvoicePanel(panelId, triggerId, open) {
   trigger.classList.toggle('active', open);
 }
 
+function setInvoiceMobileOptions(open) {
+  const panel = document.getElementById('invoiceSecondaryActions');
+  const trigger = document.getElementById('toggleInvoiceMobileOptions');
+  if (!panel || !trigger) return;
+
+  panel.classList.toggle('mobile-open', open);
+  trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
 function closeInvoicePanels() {
   setInvoicePanel('invoicePayOptions', 'toggleInvoicePayOptions', false);
   setInvoicePanel('invoiceUndoOptions', 'toggleInvoiceUndoOptions', false);
 }
 
 function initializeInvoiceControls() {
+  const mobileTrigger = document.getElementById('toggleInvoiceMobileOptions');
   const payTrigger = document.getElementById('toggleInvoicePayOptions');
   const undoTrigger = document.getElementById('toggleInvoiceUndoOptions');
+
+  if (mobileTrigger) {
+    mobileTrigger.addEventListener('click', function () {
+      const shouldOpen = mobileTrigger.getAttribute('aria-expanded') !== 'true';
+      setInvoiceMobileOptions(shouldOpen);
+      if (!shouldOpen) closeInvoicePanels();
+    });
+  }
 
   if (payTrigger) {
     payTrigger.addEventListener('click', function () {
@@ -466,6 +497,7 @@ function applyInvoiceState(data) {
   const options = Array.isArray(data.invoice_options) ? data.invoice_options : [];
 
   const payAllButton = document.getElementById('invoicePayAllButton');
+  const mobileTrigger = document.getElementById('toggleInvoiceMobileOptions');
   const payTrigger = document.getElementById('toggleInvoicePayOptions');
   const undoTrigger = document.getElementById('toggleInvoiceUndoOptions');
   const complete = document.getElementById('invoiceComplete');
@@ -473,6 +505,7 @@ function applyInvoiceState(data) {
   const undoSelect = document.getElementById('invoiceUndoCategory');
 
   if (payAllButton) payAllButton.hidden = openValue <= 0;
+  if (mobileTrigger) mobileTrigger.hidden = openValue <= 0 && paidValue <= 0;
   if (payTrigger) payTrigger.hidden = openValue <= 0;
   if (undoTrigger) undoTrigger.hidden = paidValue <= 0;
   if (complete) complete.hidden = openValue > 0;
@@ -481,6 +514,7 @@ function applyInvoiceState(data) {
   populateInvoiceSelect(undoSelect, options, 'undo', paidValue);
 
   if (openValue <= 0 || paidValue <= 0) closeInvoicePanels();
+  if (openValue <= 0 && paidValue <= 0) setInvoiceMobileOptions(false);
 }
 
 async function submitAjaxForm(form) {
