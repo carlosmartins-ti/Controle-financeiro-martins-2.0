@@ -34,35 +34,53 @@
     </div>
 
     <div class="invoice-controls">
-      <form method="post" action="/despesas/credit/pay" id="invoicePayForm" class="invoice-pay-form" data-ajax="true">
+      <form method="post" action="/despesas/credit/pay" id="invoicePayAllForm" class="invoice-primary-form" data-ajax="true">
         <input type="hidden" name="month" value="{{ month }}">
         <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="category_id" value="all">
+        <button type="submit" id="invoicePayAllButton" {% if not open_credit %}hidden{% endif %}>💰 Pagar fatura</button>
+      </form>
 
-        <label for="invoiceCategory" id="invoicePayLabel" {% if not open_credit %}hidden{% endif %}>O que você deseja pagar?</label>
-        <div class="invoice-pay-line" id="invoicePayLine" {% if not open_credit %}hidden{% endif %}>
-          <select name="category_id" id="invoiceCategory">
-            <option value="all" data-open-total="{{ total_fatura }}">
-              Todas as faturas — {{ total_fatura | brl }}
-            </option>
+      <div class="invoice-complete" id="invoiceComplete" {% if open_credit %}hidden{% endif %}>✅ Todas as faturas deste período estão pagas.</div>
+
+      <div class="invoice-more-actions">
+        <button type="button" class="invoice-expand-button" id="toggleInvoicePayOptions" aria-expanded="false" {% if not open_credit %}hidden{% endif %}>▸ Escolher cartão</button>
+        <button type="button" class="invoice-expand-button undo" id="toggleInvoiceUndoOptions" aria-expanded="false" {% if not paid_credit %}hidden{% endif %}>↩ Desfazer pagamento</button>
+      </div>
+
+      <div class="invoice-expand-panel" id="invoicePayOptions" hidden>
+        <form method="post" action="/despesas/credit/pay" id="invoicePayCategoryForm" data-ajax="true">
+          <input type="hidden" name="month" value="{{ month }}">
+          <input type="hidden" name="year" value="{{ year }}">
+          <label for="invoicePayCategory">Qual cartão deseja pagar?</label>
+          <select name="category_id" id="invoicePayCategory" required>
+            <option value="">Selecione o cartão</option>
             {% for invoice in invoice_options %}
               {% if invoice.has_open %}
-              <option value="{{ invoice.id }}" data-open-total="{{ invoice.open_total }}">
-                Somente {{ invoice.name }} — {{ invoice.open_total | brl }}
-              </option>
+              <option value="{{ invoice.id }}">{{ invoice.name }} — {{ invoice.open_total | brl }}</option>
               {% endif %}
             {% endfor %}
           </select>
-          <button type="submit">💰 Pagar fatura</button>
-        </div>
-        <small class="invoice-help" id="invoiceHelp" {% if not open_credit %}hidden{% endif %}>Selecione “Todas as faturas” para pagar tudo de uma vez ou escolha apenas o cartão desejado.</small>
-        <div class="invoice-complete" id="invoiceComplete" {% if open_credit %}hidden{% endif %}>✅ Todas as faturas deste período estão pagas.</div>
-      </form>
+          <button type="submit">Pagar cartão selecionado</button>
+        </form>
+      </div>
 
-      <div class="invoice-paid-state" id="invoicePaidState" {% if open_credit %}hidden{% endif %}>
-        <form method="post" action="/despesas/credit/unpay">
+      <div class="invoice-expand-panel" id="invoiceUndoOptions" hidden>
+        <form method="post" action="/despesas/credit/unpay" id="invoiceUndoForm" data-ajax="true">
           <input type="hidden" name="month" value="{{ month }}">
           <input type="hidden" name="year" value="{{ year }}">
-          <button>🔄 Desfazer todas</button>
+          <label for="invoiceUndoCategory">O que deseja desfazer?</label>
+          <select name="category_id" id="invoiceUndoCategory" required>
+            {% if paid_credit %}
+            <option value="all">Todas as faturas — {{ total_fatura_paga | brl }}</option>
+            {% endif %}
+            {% for invoice in invoice_options %}
+              {% if invoice.paid_total > 0 %}
+              <option value="{{ invoice.id }}">{{ invoice.name }} — {{ invoice.paid_total | brl }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+          <button type="submit" class="undo-action">Desfazer selecionado</button>
         </form>
       </div>
     </div>
@@ -83,7 +101,11 @@
     </form>
   </details>
 
-  <div class="expense-list">
+  <div class="expense-list" id="expenseList">
+    <div class="expense-search-result-bar" id="expenseSearchResultBar" hidden>
+      <span id="expenseSearchResultText"></span>
+      <button type="button" id="undoExpenseSearch">✕ Desfazer pesquisa</button>
+    </div>
     {% if visible_rows %}
       {% for r in visible_rows %}
       <article class="expense-card" id="expense-{{ r.id }}" data-payment-id="{{ r.id }}">
@@ -200,21 +222,52 @@ function normalizeExpenseSearch(value) {
     .trim();
 }
 
-function filterExpenseCards() {
-  const input = document.getElementById('expenseSearch');
-  const clearButton = document.getElementById('clearExpenseSearch');
-  const status = document.getElementById('expenseSearchStatus');
-  const empty = document.getElementById('expenseSearchEmpty');
-  const defaultEmpty = document.getElementById('expenseListEmpty');
-  const cards = Array.from(document.querySelectorAll('.expense-card'));
-  if (!input) return;
+function formatBrl(value) {
+  return Number(value || 0).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  });
+}
 
-  const rawQuery = input.value.trim();
+let expenseSearchScrollTimer = null;
+
+function getExpenseSearchElements() {
+  return {
+    input: document.getElementById('expenseSearch'),
+    clearButton: document.getElementById('clearExpenseSearch'),
+    status: document.getElementById('expenseSearchStatus'),
+    empty: document.getElementById('expenseSearchEmpty'),
+    defaultEmpty: document.getElementById('expenseListEmpty'),
+    panel: document.querySelector('.panel'),
+    resultBar: document.getElementById('expenseSearchResultBar'),
+    resultText: document.getElementById('expenseSearchResultText')
+  };
+}
+
+function scrollToExpenseResult(target) {
+  window.clearTimeout(expenseSearchScrollTimer);
+  expenseSearchScrollTimer = window.setTimeout(function () {
+    const resultBar = document.getElementById('expenseSearchResultBar');
+    const scrollTarget = resultBar && !resultBar.hidden ? resultBar : target;
+    if (scrollTarget) {
+      scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 280);
+}
+
+function filterExpenseCards(options = {}) {
+  const elements = getExpenseSearchElements();
+  const cards = Array.from(document.querySelectorAll('.expense-card'));
+  if (!elements.input) return;
+
+  const rawQuery = elements.input.value.trim();
   const query = normalizeExpenseSearch(rawQuery);
   const queryDigits = rawQuery.replace(/\D/g, '');
-  let found = 0;
+  const matchedCards = [];
 
   cards.forEach(function (card) {
+    card.classList.remove('search-match-focus');
+
     const searchableParts = card.querySelectorAll('.expense-top, .expense-middle');
     const cardText = Array.from(searchableParts)
       .map(function (part) { return part.textContent || ''; })
@@ -226,34 +279,72 @@ function filterExpenseCards() {
     const matches = textMatch || numberMatch;
 
     card.hidden = !matches;
-    if (matches) found += 1;
+    if (matches) matchedCards.push(card);
   });
 
-  if (clearButton) clearButton.hidden = !rawQuery;
-  if (status) {
-    status.textContent = rawQuery
-      ? `${found} ${found === 1 ? 'despesa encontrada' : 'despesas encontradas'}`
+  const found = matchedCards.length;
+  const active = Boolean(rawQuery);
+
+  if (elements.panel) elements.panel.classList.toggle('expense-search-active', active);
+  if (elements.clearButton) elements.clearButton.hidden = !active;
+  if (elements.status) elements.status.textContent = '';
+  if (elements.empty) elements.empty.hidden = !active || found > 0;
+  if (elements.defaultEmpty) elements.defaultEmpty.hidden = active;
+
+  if (elements.resultBar) elements.resultBar.hidden = !active;
+  if (elements.resultText) {
+    elements.resultText.textContent = active
+      ? `${found} ${found === 1 ? 'despesa encontrada' : 'despesas encontradas'} para “${rawQuery}”`
       : '';
   }
-  if (empty) empty.hidden = !rawQuery || found > 0;
-  if (defaultEmpty) defaultEmpty.hidden = Boolean(rawQuery);
+
+  if (active && found > 0) {
+    matchedCards[0].classList.add('search-match-focus');
+    if (options.scroll !== false) scrollToExpenseResult(matchedCards[0]);
+  } else if (active && options.scroll !== false) {
+    scrollToExpenseResult(elements.empty);
+  }
+}
+
+function clearExpenseSearch(scrollBack = true) {
+  const elements = getExpenseSearchElements();
+  if (!elements.input) return;
+
+  window.clearTimeout(expenseSearchScrollTimer);
+  elements.input.value = '';
+  filterExpenseCards({ scroll: false });
+
+  if (scrollBack) {
+    const wrap = document.querySelector('.expense-search-wrap');
+    if (wrap) wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  elements.input.focus();
 }
 
 function initializeExpenseSearch() {
   const input = document.getElementById('expenseSearch');
   const clearButton = document.getElementById('clearExpenseSearch');
+  const undoButton = document.getElementById('undoExpenseSearch');
   if (!input) return;
 
-  input.addEventListener('input', filterExpenseCards);
-  input.addEventListener('search', filterExpenseCards);
+  input.addEventListener('input', function () {
+    filterExpenseCards({ scroll: true });
+  });
+  input.addEventListener('search', function () {
+    filterExpenseCards({ scroll: true });
+  });
+  input.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      filterExpenseCards({ scroll: true });
+    }
+    if (event.key === 'Escape') {
+      clearExpenseSearch();
+    }
+  });
 
-  if (clearButton) {
-    clearButton.addEventListener('click', function () {
-      input.value = '';
-      filterExpenseCards();
-      input.focus();
-    });
-  }
+  if (clearButton) clearButton.addEventListener('click', function () { clearExpenseSearch(); });
+  if (undoButton) undoButton.addEventListener('click', function () { clearExpenseSearch(); });
 }
 
 function updatePaymentCard(paymentId, paid) {
@@ -283,61 +374,99 @@ function updatePageTotals(data) {
   }
 
   const invoiceTotal = document.getElementById('invoiceOpenTotal');
-  if (invoiceTotal && data.invoice_open_total) {
-    invoiceTotal.textContent = data.invoice_open_total;
+  if (invoiceTotal && data.invoice_open_total) invoiceTotal.textContent = data.invoice_open_total;
+}
+
+function setInvoicePanel(panelId, triggerId, open) {
+  const panel = document.getElementById(panelId);
+  const trigger = document.getElementById(triggerId);
+  if (!panel || !trigger) return;
+
+  panel.hidden = !open;
+  trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+  trigger.classList.toggle('active', open);
+}
+
+function closeInvoicePanels() {
+  setInvoicePanel('invoicePayOptions', 'toggleInvoicePayOptions', false);
+  setInvoicePanel('invoiceUndoOptions', 'toggleInvoiceUndoOptions', false);
+}
+
+function initializeInvoiceControls() {
+  const payTrigger = document.getElementById('toggleInvoicePayOptions');
+  const undoTrigger = document.getElementById('toggleInvoiceUndoOptions');
+
+  if (payTrigger) {
+    payTrigger.addEventListener('click', function () {
+      const shouldOpen = payTrigger.getAttribute('aria-expanded') !== 'true';
+      setInvoicePanel('invoiceUndoOptions', 'toggleInvoiceUndoOptions', false);
+      setInvoicePanel('invoicePayOptions', 'toggleInvoicePayOptions', shouldOpen);
+    });
+  }
+
+  if (undoTrigger) {
+    undoTrigger.addEventListener('click', function () {
+      const shouldOpen = undoTrigger.getAttribute('aria-expanded') !== 'true';
+      setInvoicePanel('invoicePayOptions', 'toggleInvoicePayOptions', false);
+      setInvoicePanel('invoiceUndoOptions', 'toggleInvoiceUndoOptions', shouldOpen);
+    });
   }
 }
 
-function syncInvoiceCategory(data) {
-  const select = document.getElementById('invoiceCategory');
-  const line = document.getElementById('invoicePayLine');
-  const label = document.getElementById('invoicePayLabel');
-  const help = document.getElementById('invoiceHelp');
-  const complete = document.getElementById('invoiceComplete');
-  const paidState = document.getElementById('invoicePaidState');
+function populateInvoiceSelect(select, options, mode, totalValue) {
   if (!select) return;
 
-  const totalOpenValue = Number(data.invoice_open_total_value || 0);
-  let allOption = select.querySelector('option[value="all"]');
+  const previousValue = select.value;
+  select.innerHTML = '';
 
-  if (!allOption) {
-    allOption = document.createElement('option');
+  if (mode === 'pay') {
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Selecione o cartão';
+    select.appendChild(placeholder);
+  } else if (totalValue > 0) {
+    const allOption = document.createElement('option');
     allOption.value = 'all';
-    select.prepend(allOption);
-  }
-  allOption.textContent = `Todas as faturas — ${data.invoice_open_total || 'R$ 0,00'}`;
-  allOption.dataset.openTotal = String(totalOpenValue);
-
-  if (data.pay_all) {
-    select.querySelectorAll('option:not([value="all"])').forEach(function (option) {
-      option.remove();
-    });
-  } else if (data.is_card_category && data.category_id) {
-    const categoryId = String(data.category_id);
-    let option = select.querySelector(`option[value="${categoryId}"]`);
-    const openValue = Number(data.category_open_total_value || 0);
-
-    if (openValue > 0) {
-      if (!option) {
-        option = document.createElement('option');
-        option.value = categoryId;
-        select.appendChild(option);
-      }
-      option.textContent = `Somente ${data.category_name || 'cartão'} — ${data.category_open_total}`;
-      option.dataset.openTotal = String(openValue);
-    } else if (option) {
-      option.remove();
-    }
+    allOption.textContent = `Todas as faturas — ${formatBrl(totalValue)}`;
+    select.appendChild(allOption);
   }
 
-  const hasOpenInvoices = totalOpenValue > 0;
-  if (line) line.hidden = !hasOpenInvoices;
-  if (label) label.hidden = !hasOpenInvoices;
-  if (help) help.hidden = !hasOpenInvoices;
-  if (complete) complete.hidden = hasOpenInvoices;
-  if (paidState) paidState.hidden = hasOpenInvoices;
+  options.forEach(function (option) {
+    const amount = mode === 'pay' ? Number(option.open_total || 0) : Number(option.paid_total || 0);
+    if (amount <= 0) return;
 
-  select.value = hasOpenInvoices ? 'all' : '';
+    const item = document.createElement('option');
+    item.value = String(option.id);
+    item.textContent = `${option.name || 'Cartão'} — ${formatBrl(amount)}`;
+    select.appendChild(item);
+  });
+
+  if (Array.from(select.options).some(function (option) { return option.value === previousValue; })) {
+    select.value = previousValue;
+  }
+}
+
+function applyInvoiceState(data) {
+  const openValue = Number(data.invoice_open_total_value || 0);
+  const paidValue = Number(data.invoice_paid_total_value || 0);
+  const options = Array.isArray(data.invoice_options) ? data.invoice_options : [];
+
+  const payAllButton = document.getElementById('invoicePayAllButton');
+  const payTrigger = document.getElementById('toggleInvoicePayOptions');
+  const undoTrigger = document.getElementById('toggleInvoiceUndoOptions');
+  const complete = document.getElementById('invoiceComplete');
+  const paySelect = document.getElementById('invoicePayCategory');
+  const undoSelect = document.getElementById('invoiceUndoCategory');
+
+  if (payAllButton) payAllButton.hidden = openValue <= 0;
+  if (payTrigger) payTrigger.hidden = openValue <= 0;
+  if (undoTrigger) undoTrigger.hidden = paidValue <= 0;
+  if (complete) complete.hidden = openValue > 0;
+
+  populateInvoiceSelect(paySelect, options, 'pay', openValue);
+  populateInvoiceSelect(undoSelect, options, 'undo', paidValue);
+
+  if (openValue <= 0 || paidValue <= 0) closeInvoicePanels();
 }
 
 async function submitAjaxForm(form) {
@@ -373,7 +502,10 @@ async function submitAjaxForm(form) {
   }
 }
 
-document.addEventListener('DOMContentLoaded', initializeExpenseSearch);
+document.addEventListener('DOMContentLoaded', function () {
+  initializeExpenseSearch();
+  initializeInvoiceControls();
+});
 
 document.addEventListener('submit', async function (event) {
   const form = event.target;
@@ -388,29 +520,48 @@ document.addEventListener('submit', async function (event) {
       const data = await submitAjaxForm(form);
       updatePaymentCard(paymentId, data.paid);
       updatePageTotals(data);
-      syncInvoiceCategory(data);
+      applyInvoiceState(data);
       showQuickToast(data.message || 'Despesa atualizada.');
       return;
     }
 
-    if (form.id === 'invoicePayForm') {
-      const select = document.getElementById('invoiceCategory');
-      if (!select || !select.value) {
-        showQuickToast('Selecione o que deseja pagar.', true);
+    if (form.id === 'invoicePayAllForm' || form.id === 'invoicePayCategoryForm') {
+      const selected = form.querySelector('select[name="category_id"]');
+      if (selected && !selected.value) {
+        showQuickToast('Selecione o cartão que deseja pagar.', true);
         return;
       }
 
       const data = await submitAjaxForm(form);
-
       (data.updated_ids || []).forEach(function (paymentId) {
         updatePaymentCard(paymentId, true);
       });
 
       updatePageTotals(data);
-      syncInvoiceCategory(data);
-      filterExpenseCards();
-
+      applyInvoiceState(data);
+      closeInvoicePanels();
+      filterExpenseCards({ scroll: false });
       showQuickToast(`${data.category_name || 'Fatura'} paga com sucesso.`);
+      return;
+    }
+
+    if (form.id === 'invoiceUndoForm') {
+      const selected = form.querySelector('select[name="category_id"]');
+      if (!selected || !selected.value) {
+        showQuickToast('Selecione o que deseja desfazer.', true);
+        return;
+      }
+
+      const data = await submitAjaxForm(form);
+      (data.updated_ids || []).forEach(function (paymentId) {
+        updatePaymentCard(paymentId, false);
+      });
+
+      updatePageTotals(data);
+      applyInvoiceState(data);
+      closeInvoicePanels();
+      filterExpenseCards({ scroll: false });
+      showQuickToast(`${data.category_name || 'Fatura'} desfeita com sucesso.`);
     }
   } catch (error) {
     showQuickToast(error.message || 'Erro ao atualizar.', true);
