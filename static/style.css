@@ -1800,3 +1800,287 @@ select {
     transform: scale(.98);
   }
 }
+
+/* =========================================================
+   DESPESAS — FATURAS SEPARADAS E PAGAMENTO RÁPIDO
+========================================================= */
+
+.add-box:not([open]) summary {
+  margin-bottom: 0;
+}
+
+.invoice-summary {
+  flex: 0 0 auto;
+}
+
+.invoice-pay-form {
+  width: min(560px, 100%);
+}
+
+.invoice-pay-form label {
+  display: block;
+  margin: 0 0 7px;
+  color: #aebbd2;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.invoice-pay-line {
+  display: grid;
+  grid-template-columns: minmax(210px, 1fr) auto;
+  gap: 10px;
+}
+
+.invoice-pay-line select {
+  width: 100%;
+  min-width: 0;
+  min-height: 50px;
+  padding: 0 14px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 10px;
+  background: #111c30;
+  color: #f8fafc;
+  font-size: 15px;
+  outline: none;
+}
+
+.invoice-pay-line select:focus {
+  border-color: #24a77c;
+  box-shadow: 0 0 0 2px rgba(36,167,124,.18);
+}
+
+.invoice-help {
+  margin-top: 7px;
+  color: #7f95ba !important;
+  line-height: 1.35;
+}
+
+.invoice-paid-state {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.invoice-paid-state > span,
+.invoice-complete {
+  color: #86efac;
+  font-weight: 700;
+}
+
+.quick-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 9999;
+  max-width: calc(100vw - 32px);
+  padding: 12px 18px;
+  border: 1px solid rgba(16,185,129,.35);
+  border-radius: 12px;
+  background: #063b2d;
+  color: #d1fae5;
+  box-shadow: 0 14px 40px rgba(0,0,0,.30);
+  font-weight: 700;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 16px);
+  transition: opacity .2s ease, transform .2s ease;
+}
+
+.quick-toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.quick-toast.error {
+  border-color: rgba(239,68,68,.42);
+  background: #4c1117;
+  color: #fee2e2;
+}
+
+.ajax-pay-form button:disabled,
+.invoice-pay-form button:disabled {
+  cursor: wait;
+  opacity: .68;
+}
+
+@media (max-width: 960px) {
+  .invoice-card {
+    display: block;
+  }
+
+  .invoice-pay-form {
+    width: 100%;
+    margin-top: 14px;
+  }
+
+  .invoice-pay-line {
+    grid-template-columns: 1fr;
+  }
+
+  .invoice-pay-line button,
+  .invoice-paid-state button {
+    width: 100%;
+  }
+
+  .invoice-paid-state {
+    display: block;
+    margin-top: 14px;
+  }
+
+  .invoice-paid-state > span {
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  .quick-toast {
+    bottom: 16px;
+  }
+}
+
+.invoice-card [hidden] {
+  display: none !important;
+}
+
+.invoice-controls {
+  width: min(560px, 100%);
+}
+
+.invoice-controls .invoice-pay-form {
+  width: 100%;
+}
+
+.invoice-controls .invoice-paid-state {
+  margin-top: 10px;
+}
+
+@media (max-width: 960px) {
+  .invoice-controls {
+    width: 100%;
+    margin-top: 14px;
+  }
+}
+
+
+/* =========================================================
+   DESPESAS — BUSCA RÁPIDA
+========================================================= */
+
+.expense-search-wrap {
+  margin: 0 0 18px;
+}
+
+.expense-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 54px;
+  padding: 0 12px 0 16px;
+  border: 1px solid #dbe3ee;
+  border-radius: 14px;
+  background: #f8fafc;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+
+.expense-search:focus-within {
+  border-color: #24a77c;
+  box-shadow: 0 0 0 3px rgba(36,167,124,.13);
+}
+
+.expense-search-icon {
+  flex: 0 0 auto;
+  font-size: 20px;
+  line-height: 1;
+  filter: grayscale(1);
+  opacity: .7;
+}
+
+.expense-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 52px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #0f172a;
+  font-size: 16px;
+}
+
+.expense-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.expense-search-clear {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: #e8eef5;
+  color: #64748b;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.expense-search-clear:hover {
+  background: #dce5ef;
+  color: #0f172a;
+}
+
+.expense-search-status {
+  display: block;
+  min-height: 18px;
+  margin: 6px 2px 0;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.search-empty {
+  width: 100%;
+}
+
+.invoice-pay-line option {
+  background: #111c30;
+  color: #f8fafc;
+}
+
+@media (max-width: 960px) {
+  .expense-search-wrap {
+    margin-bottom: 16px;
+  }
+
+  .expense-search {
+    min-height: 52px;
+  }
+
+  .expense-search input {
+    min-height: 50px;
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 960px) and (prefers-color-scheme: dark) {
+  .expense-search {
+    background: #111827;
+    border-color: rgba(255,255,255,.12);
+  }
+
+  .expense-search input {
+    color: #f8fafc;
+  }
+
+  .expense-search-clear {
+    background: rgba(255,255,255,.08);
+    color: #cbd5e1;
+  }
+
+  .expense-search-status {
+    color: #94a3b8;
+  }
+}
