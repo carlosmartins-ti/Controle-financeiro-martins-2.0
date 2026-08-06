@@ -1,7 +1,139 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+  /* Ajustes locais da tela de categorias: não dependem de alteração no style.css. */
+  .category-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .category-item {
+    display: block !important;
+    padding: 14px 16px !important;
+  }
+
+  .category-item-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .category-item-main > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .category-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+
+  .category-actions form {
+    margin: 0;
+  }
+
+  .category-item .category-actions button {
+    width: auto !important;
+    min-height: 38px;
+    padding: 0 13px;
+    white-space: nowrap;
+  }
+
+  .category-item .category-edit-button {
+    background: rgba(255, 255, 255, .06) !important;
+    border: 1px solid rgba(255, 255, 255, .12) !important;
+    color: #f8fafc !important;
+  }
+
+  .category-item .category-edit-button:hover,
+  .category-item .category-edit-button[aria-expanded="true"] {
+    background: rgba(255, 255, 255, .11) !important;
+  }
+
+  .category-item .category-delete-button {
+    background: rgba(220, 38, 38, .14) !important;
+    border: 1px solid rgba(220, 38, 38, .30) !important;
+    color: #fff !important;
+  }
+
+  .category-edit-form {
+    display: none !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 10px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, .08);
+  }
+
+  .category-edit-form.open {
+    display: grid !important;
+  }
+
+  .category-edit-form label {
+    display: block;
+    min-width: 0;
+    margin: 0;
+  }
+
+  .category-edit-form input {
+    display: block;
+    width: 100% !important;
+    min-width: 0;
+    min-height: 44px;
+    margin-top: 7px;
+    box-sizing: border-box;
+  }
+
+  .category-edit-form button {
+    width: auto !important;
+    min-height: 44px;
+    padding: 0 16px;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 600px) {
+    .category-item {
+      padding: 13px !important;
+    }
+
+    .category-item-main {
+      align-items: start;
+      gap: 10px;
+    }
+
+    .category-actions {
+      gap: 6px;
+    }
+
+    .category-item .category-actions button {
+      min-height: 36px;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+
+    .category-edit-form {
+      grid-template-columns: 1fr;
+    }
+
+    .category-edit-form button {
+      width: 100% !important;
+    }
+  }
+</style>
+
 <section class="panel">
-  <div class="panel-head"><div><h2>🏷️ Categorias</h2><p>Organize suas despesas por categoria.</p></div></div>
+  <div class="panel-head">
+    <div>
+      <h2>🏷️ Categorias</h2>
+      <p>Organize suas despesas por categoria.</p>
+    </div>
+  </div>
 
   <form class="simple-form" method="post" action="/categorias/add">
     <input type="hidden" name="month" value="{{ month }}">
@@ -15,18 +147,19 @@
     <div class="category-item">
       <div class="category-item-main">
         <span>{{ c.name }}</span>
+
         <div class="category-actions">
           <button
             type="button"
             class="category-edit-button"
             onclick="toggleCategoryEdit('category-edit-{{ c.id }}', this)"
             aria-expanded="false"
-          >✏️ Editar</button>
+          >Editar</button>
 
           <form method="post" action="/categorias/{{ c.id }}/delete" onsubmit="return confirm('Excluir categoria?')">
             <input type="hidden" name="month" value="{{ month }}">
             <input type="hidden" name="year" value="{{ year }}">
-            <button class="category-delete-button">Excluir</button>
+            <button class="category-delete-button" type="submit">Excluir</button>
           </form>
         </div>
       </div>
@@ -54,15 +187,16 @@ function toggleCategoryEdit(id, button) {
   document.querySelectorAll('.category-edit-form.open').forEach(function (otherForm) {
     if (otherForm === form) return;
     otherForm.classList.remove('open');
+
     const otherButton = document.querySelector('[onclick*="' + otherForm.id + '"]');
     if (otherButton) {
-      otherButton.textContent = '✏️ Editar';
+      otherButton.textContent = 'Editar';
       otherButton.setAttribute('aria-expanded', 'false');
     }
   });
 
   form.classList.toggle('open', opening);
-  button.textContent = opening ? '✕ Fechar' : '✏️ Editar';
+  button.textContent = opening ? 'Fechar' : 'Editar';
   button.setAttribute('aria-expanded', String(opening));
 
   if (opening) {
