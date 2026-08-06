@@ -824,26 +824,45 @@ def update_credit_installments(
 ):
     user = require_login(request)
     if not user:
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": "Sessão expirada."}, status_code=401)
         return redirect("/")
 
     if bool(user.get("is_superuser")):
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": "Ação não permitida."}, status_code=403)
         return redirect("/admin/usuarios")
 
     try:
         repos.update_credit_group_installments(
             user["id"],
             credit_group,
-            new_installments
+            new_installments,
+        )
+    except (TypeError, ValueError) as exc:
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+        return redirect(
+            f"/despesas?month={month}&year={year}&err={str(exc)}"
+        )
+    except Exception as exc:
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=500)
+        return redirect(
+            f"/despesas?month={month}&year={year}&err={str(exc)}"
         )
 
-        return redirect(
-            f"/despesas?month={month}&year={year}&msg=Parcelas atualizadas com sucesso."
-        )
+    if wants_json(request):
+        return JSONResponse({
+            "ok": True,
+            "credit_group": credit_group,
+            "new_installments": int(new_installments),
+            "message": "Parcelas atualizadas com sucesso.",
+        })
 
-    except Exception as e:
-        return redirect(
-            f"/despesas?month={month}&year={year}&err={str(e)}"
-        )
+    return redirect(
+        f"/despesas?month={month}&year={year}&msg=Parcelas atualizadas com sucesso."
+    )
 
 
 @app.get("/despesas/pdf")
