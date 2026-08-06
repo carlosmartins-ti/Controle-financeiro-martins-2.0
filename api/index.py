@@ -122,6 +122,35 @@ def wants_json(request: Request):
     )
 
 
+def payment_summary_payload(result: dict):
+    total = float(result.get("total") or 0)
+    paid_total = float(result.get("paid_total") or 0)
+    open_total = float(result.get("open_total") or 0)
+    income = float(result.get("income") or 0)
+
+    return {
+        "metrics": {
+            "total": fmt_brl(total),
+            "pago": fmt_brl(paid_total),
+            "aberto": fmt_brl(open_total),
+            "saldo": fmt_brl(income - total),
+        },
+        "invoice_open_total": fmt_brl(result.get("credit_open_total") or 0),
+        "invoice_open_total_value": float(result.get("credit_open_total") or 0),
+        "invoice_paid_total": fmt_brl(result.get("credit_paid_total") or 0),
+        "invoice_paid_total_value": float(result.get("credit_paid_total") or 0),
+        "invoice_options": [
+            {
+                "id": option.get("id"),
+                "name": option.get("name"),
+                "open_total": float(option.get("open_total") or 0),
+                "paid_total": float(option.get("paid_total") or 0),
+            }
+            for option in (result.get("invoice_options") or [])
+        ],
+    }
+
+
 def month_year_defaults(month: int | None, year: int | None):
     today = date.today()
     return month or today.month, year or today.year
@@ -431,6 +460,7 @@ def despesas(
         "total_fatura": total_fatura,
         "total_fatura_paga": total_fatura_paga,
         "invoice_options": invoice_options,
+        "has_card_categories": bool(card_categories),
     })
     return templates.TemplateResponse(request, "despesas.html", ctx)
 
@@ -525,15 +555,39 @@ def toggle_paid(request: Request, payment_id: int, paid: int = Form(1), month: i
 
 
 @app.post("/despesas/{payment_id}/delete")
-def delete_despesa(request: Request, payment_id: int, month: int = Form(...), year: int = Form(...)):
+def delete_despesa(
+    request: Request,
+    payment_id: int,
+    month: int = Form(...),
+    year: int = Form(...),
+):
     user = require_login(request)
     if not user:
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": "Sessão expirada."}, status_code=401)
         return redirect("/")
 
     if bool(user.get("is_superuser")):
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": "Ação não permitida."}, status_code=403)
         return redirect("/admin/usuarios")
 
-    repos.delete_payment(user["id"], payment_id)
+    try:
+        result = repos.delete_payment(user["id"], payment_id, month, year)
+    except ValueError as exc:
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=404)
+        return redirect(f"/despesas?month={month}&year={year}&err={str(exc)}")
+
+    if wants_json(request):
+        payload = payment_summary_payload(result)
+        payload.update({
+            "ok": True,
+            "deleted_id": result.get("deleted_id") or payment_id,
+            "message": "Despesa excluída.",
+        })
+        return JSONResponse(payload)
+
     return redirect(f"/despesas?month={month}&year={year}&msg=Despesa excluída.")
 
 
@@ -551,13 +605,55 @@ def edit_despesa(
 ):
     user = require_login(request)
     if not user:
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": "Sessão expirada."}, status_code=401)
         return redirect("/")
 
     if bool(user.get("is_superuser")):
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": "Ação não permitida."}, status_code=403)
         return redirect("/admin/usuarios")
 
-    cid = int(category_id) if category_id else None
-    repos.update_payment(user["id"], payment_id, description.strip(), float(amount), purchase_date, due_date, cid)
+    try:
+        cid = int(category_id) if category_id else None
+        result = repos.update_payment(
+            user["id"],
+            payment_id,
+            description.strip(),
+            float(amount),
+            purchase_date,
+            due_date,
+            cid,
+            month,
+            year,
+        )
+    except (TypeError, ValueError) as exc:
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+        return redirect(f"/despesas?month={month}&year={year}&err={str(exc)}")
+
+    if wants_json(request):
+        payment = result.get("payment") or {}
+        payload = payment_summary_payload(result)
+        payload.update({
+            "ok": True,
+            "payment": {
+                "id": payment.get("id") or payment_id,
+                "description": payment.get("description") or "",
+                "amount": float(payment.get("amount") or 0),
+                "amount_formatted": fmt_brl(payment.get("amount") or 0),
+                "purchase_date": str(payment.get("purchase_date") or ""),
+                "purchase_date_formatted": format_date_br(payment.get("purchase_date")),
+                "due_date": str(payment.get("due_date") or ""),
+                "due_date_formatted": format_date_br(payment.get("due_date")),
+                "category_id": payment.get("category_id"),
+                "category": payment.get("category") or "(sem categoria)",
+                "paid": bool(payment.get("paid")),
+            },
+            "message": "Despesa atualizada com sucesso.",
+        })
+        return JSONResponse(payload)
+
     return redirect(f"/despesas?month={month}&year={year}&msg=Despesa atualizada com sucesso.")
 
 
@@ -833,33 +929,6 @@ def add_categoria(request: Request, name: str = Form(""), month: int = Form(...)
     if name.strip():
         repos.create_category(user["id"], name.strip())
     return redirect(f"/categorias?month={month}&year={year}&msg=Categoria cadastrada.")
-
-
-@app.post("/categorias/{category_id}/edit")
-def edit_categoria(
-    request: Request,
-    category_id: int,
-    name: str = Form(""),
-    month: int = Form(...),
-    year: int = Form(...),
-):
-    user = require_login(request)
-    if not user:
-        return redirect("/")
-
-    if bool(user.get("is_superuser")):
-        return redirect("/admin/usuarios")
-
-    clean_name = name.strip()
-    if not clean_name:
-        return redirect(
-            f"/categorias?month={month}&year={year}&err=Informe o nome da categoria."
-        )
-
-    repos.update_category(user["id"], category_id, clean_name)
-    return redirect(
-        f"/categorias?month={month}&year={year}&msg=Categoria atualizada."
-    )
 
 
 @app.post("/categorias/{category_id}/delete")
