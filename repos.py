@@ -388,6 +388,120 @@ def mark_paid(user_id, payment_id, paid):
     conn.close()
 
 
+def _get_period_payment_totals(conn, user_id, month, year):
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            COALESCE(SUM(p.amount), 0) AS total,
+            COALESCE(SUM(CASE WHEN p.paid = TRUE THEN p.amount ELSE 0 END), 0) AS paid_total,
+            COALESCE(SUM(CASE WHEN p.paid = FALSE THEN p.amount ELSE 0 END), 0) AS open_total,
+            COALESCE(SUM(
+                CASE
+                    WHEN p.paid = FALSE
+                     AND LOWER(COALESCE(c.name, '')) LIKE %s
+                    THEN p.amount
+                    ELSE 0
+                END
+            ), 0) AS credit_open_total
+        FROM payments p
+        LEFT JOIN categories c
+          ON c.id = p.category_id
+         AND c.user_id = p.user_id
+        WHERE p.user_id = %s
+          AND p.month = %s
+          AND p.year = %s
+        """,
+        ('%cart%', user_id, month, year),
+    )
+    row = cur.fetchone() or {}
+    cur.close()
+    return row
+
+
+def _get_category_payment_state(conn, user_id, month, year, category_id):
+    if not category_id:
+        return {
+            "category_id": None,
+            "category_name": None,
+            "category_open_total": Decimal("0"),
+            "is_card_category": False,
+        }
+
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT
+            c.id AS category_id,
+            c.name AS category_name,
+            COALESCE(SUM(
+                CASE WHEN p.paid = FALSE THEN p.amount ELSE 0 END
+            ), 0) AS category_open_total
+        FROM categories c
+        LEFT JOIN payments p
+          ON p.category_id = c.id
+         AND p.user_id = c.user_id
+         AND p.month = %s
+         AND p.year = %s
+        WHERE c.user_id = %s
+          AND c.id = %s
+        GROUP BY c.id, c.name
+        """,
+        (month, year, user_id, category_id),
+    )
+    row = cur.fetchone() or {}
+    cur.close()
+
+    category_name = row.get("category_name")
+    return {
+        "category_id": row.get("category_id") or category_id,
+        "category_name": category_name,
+        "category_open_total": row.get("category_open_total") or Decimal("0"),
+        "is_card_category": bool(
+            category_name and "cart" in str(category_name).lower()
+        ),
+    }
+
+
+def mark_paid_with_summary(user_id, payment_id, paid, month, year):
+    """Atualiza uma despesa e devolve os totais do mês na mesma conexão."""
+    conn = get_connection()
+    conn.autocommit = False
+    cur = conn.cursor()
+
+    try:
+        cur.execute(
+            """
+            UPDATE payments
+            SET paid = %s,
+                paid_date = %s
+            WHERE id = %s
+              AND user_id = %s
+            RETURNING id, category_id
+            """,
+            (bool(paid), datetime.now() if paid else None, payment_id, user_id),
+        )
+        updated = cur.fetchone()
+
+        if not updated:
+            raise ValueError("Despesa não encontrada.")
+
+        totals = dict(_get_period_payment_totals(conn, user_id, month, year))
+        totals.update(
+            _get_category_payment_state(
+                conn, user_id, month, year, updated.get("category_id")
+            )
+        )
+        conn.commit()
+        return totals
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
+
+
 def update_payment(user_id, payment_id, description, amount, purchase_date, due_date, category_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -496,20 +610,40 @@ def _get_card_category_ids(conn, user_id):
     return [r["id"] for r in rows] if rows else []
 
 
-def mark_credit_invoice_paid(user_id, month, year):
-
+def mark_credit_invoice_paid_with_summary(user_id, month, year, category_id=None):
+    """Paga uma fatura específica (categoria de cartão) e retorna os totais."""
     conn = get_connection()
     conn.autocommit = False
+    cur = conn.cursor()
 
     try:
-
         card_ids = _get_card_category_ids(conn, user_id)
 
         if not card_ids:
-            conn.commit()
-            return
+            raise ValueError("Nenhuma categoria de cartão foi encontrada.")
 
-        cur = conn.cursor()
+        selected_ids = card_ids
+        selected_category_id = None
+        category_name = "Todas as faturas"
+
+        if category_id is not None:
+            selected_category_id = int(category_id)
+            if selected_category_id not in card_ids:
+                raise ValueError("A fatura selecionada não é válida.")
+
+            selected_ids = [selected_category_id]
+            cur.execute(
+                """
+                SELECT name
+                FROM categories
+                WHERE id = %s
+                  AND user_id = %s
+                """,
+                (selected_category_id, user_id),
+            )
+            category_row = cur.fetchone()
+            if category_row:
+                category_name = category_row.get("name") or category_name
 
         cur.execute(
             """
@@ -517,19 +651,42 @@ def mark_credit_invoice_paid(user_id, month, year):
             SET paid = TRUE,
                 paid_date = CURRENT_DATE
             WHERE user_id = %s
-            AND month = %s
-            AND year = %s
-            AND category_id = ANY(%s)
-            AND paid = FALSE
+              AND month = %s
+              AND year = %s
+              AND category_id = ANY(%s)
+              AND paid = FALSE
+            RETURNING id
             """,
-            (user_id, month, year, card_ids)
+            (user_id, month, year, selected_ids),
         )
+        updated_ids = [row["id"] for row in (cur.fetchall() or [])]
 
-        cur.close()
+        totals = dict(_get_period_payment_totals(conn, user_id, month, year))
+        category_state = _get_category_payment_state(
+            conn, user_id, month, year, selected_category_id
+        )
+        totals.update(category_state)
+        totals.update({
+            "updated_ids": updated_ids,
+            "category_id": selected_category_id,
+            "category_name": category_name,
+            "is_card_category": True,
+        })
+
         conn.commit()
-
+        return totals
+    except Exception:
+        conn.rollback()
+        raise
     finally:
+        cur.close()
         conn.close()
+
+
+def mark_credit_invoice_paid(user_id, month, year, category_id=None):
+    return mark_credit_invoice_paid_with_summary(
+        user_id, month, year, category_id=category_id
+    )
 
 
 def unmark_credit_invoice_paid(user_id, month, year):
