@@ -25,8 +25,8 @@
     <small class="expense-search-status" id="expenseSearchStatus" aria-live="polite"></small>
   </div>
 
-  {% if credit_rows %}
-  <div class="invoice-card" id="invoiceCard">
+  {% if has_card_categories %}
+  <div class="invoice-card" id="invoiceCard" {% if not credit_rows %}hidden{% endif %}>
     <div class="invoice-summary">
       <span>💳 Fatura do cartão</span>
       <strong id="invoiceOpenTotal">{{ total_fatura | brl }}</strong>
@@ -43,58 +43,45 @@
 
       <div class="invoice-complete" id="invoiceComplete" {% if open_credit %}hidden{% endif %}>✅ Todas as faturas deste período estão pagas.</div>
 
-      <button
-        type="button"
-        class="invoice-mobile-options-toggle"
-        id="toggleInvoiceMobileOptions"
-        aria-expanded="false"
-        {% if not open_credit and not paid_credit %}hidden{% endif %}
-      >
-        <span>Mais opções da fatura</span>
-        <span class="invoice-mobile-options-chevron" aria-hidden="true">⌄</span>
-      </button>
+      <div class="invoice-more-actions">
+        <button type="button" class="invoice-expand-button" id="toggleInvoicePayOptions" aria-expanded="false" {% if not open_credit %}hidden{% endif %}>▸ Escolher cartão</button>
+        <button type="button" class="invoice-expand-button undo" id="toggleInvoiceUndoOptions" aria-expanded="false" {% if not paid_credit %}hidden{% endif %}>↩ Desfazer pagamento</button>
+      </div>
 
-      <div class="invoice-secondary-actions" id="invoiceSecondaryActions">
-        <div class="invoice-more-actions">
-          <button type="button" class="invoice-expand-button" id="toggleInvoicePayOptions" aria-expanded="false" {% if not open_credit %}hidden{% endif %}>▸ Escolher cartão</button>
-          <button type="button" class="invoice-expand-button undo" id="toggleInvoiceUndoOptions" aria-expanded="false" {% if not paid_credit %}hidden{% endif %}>↩ Desfazer pagamento</button>
-        </div>
-
-        <div class="invoice-expand-panel" id="invoicePayOptions" hidden>
-          <form method="post" action="/despesas/credit/pay" id="invoicePayCategoryForm" data-ajax="true">
-            <input type="hidden" name="month" value="{{ month }}">
-            <input type="hidden" name="year" value="{{ year }}">
-            <label for="invoicePayCategory">Qual cartão deseja pagar?</label>
-            <select name="category_id" id="invoicePayCategory" required>
-              <option value="">Selecione o cartão</option>
-              {% for invoice in invoice_options %}
-                {% if invoice.has_open %}
-                <option value="{{ invoice.id }}">{{ invoice.name }} — {{ invoice.open_total | brl }}</option>
-                {% endif %}
-              {% endfor %}
-            </select>
-            <button type="submit">Pagar cartão selecionado</button>
-          </form>
-        </div>
-
-        <div class="invoice-expand-panel" id="invoiceUndoOptions" hidden>
-          <form method="post" action="/despesas/credit/unpay" id="invoiceUndoForm" data-ajax="true">
-            <input type="hidden" name="month" value="{{ month }}">
-            <input type="hidden" name="year" value="{{ year }}">
-            <label for="invoiceUndoCategory">O que deseja desfazer?</label>
-            <select name="category_id" id="invoiceUndoCategory" required>
-              {% if paid_credit %}
-              <option value="all">Todas as faturas — {{ total_fatura_paga | brl }}</option>
+      <div class="invoice-expand-panel" id="invoicePayOptions" hidden>
+        <form method="post" action="/despesas/credit/pay" id="invoicePayCategoryForm" data-ajax="true">
+          <input type="hidden" name="month" value="{{ month }}">
+          <input type="hidden" name="year" value="{{ year }}">
+          <label for="invoicePayCategory">Qual cartão deseja pagar?</label>
+          <select name="category_id" id="invoicePayCategory" required>
+            <option value="">Selecione o cartão</option>
+            {% for invoice in invoice_options %}
+              {% if invoice.has_open %}
+              <option value="{{ invoice.id }}">{{ invoice.name }} — {{ invoice.open_total | brl }}</option>
               {% endif %}
-              {% for invoice in invoice_options %}
-                {% if invoice.paid_total > 0 %}
-                <option value="{{ invoice.id }}">{{ invoice.name }} — {{ invoice.paid_total | brl }}</option>
-                {% endif %}
-              {% endfor %}
-            </select>
-            <button type="submit" class="undo-action">Desfazer selecionado</button>
-          </form>
-        </div>
+            {% endfor %}
+          </select>
+          <button type="submit">Pagar cartão selecionado</button>
+        </form>
+      </div>
+
+      <div class="invoice-expand-panel" id="invoiceUndoOptions" hidden>
+        <form method="post" action="/despesas/credit/unpay" id="invoiceUndoForm" data-ajax="true">
+          <input type="hidden" name="month" value="{{ month }}">
+          <input type="hidden" name="year" value="{{ year }}">
+          <label for="invoiceUndoCategory">O que deseja desfazer?</label>
+          <select name="category_id" id="invoiceUndoCategory" required>
+            {% if paid_credit %}
+            <option value="all">Todas as faturas — {{ total_fatura_paga | brl }}</option>
+            {% endif %}
+            {% for invoice in invoice_options %}
+              {% if invoice.paid_total > 0 %}
+              <option value="{{ invoice.id }}">{{ invoice.name }} — {{ invoice.paid_total | brl }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+          <button type="submit" class="undo-action">Desfazer selecionado</button>
+        </form>
       </div>
     </div>
   </div>
@@ -119,18 +106,17 @@
       <span id="expenseSearchResultText"></span>
       <button type="button" id="undoExpenseSearch">✕ Desfazer pesquisa</button>
     </div>
-    {% if visible_rows %}
-      {% for r in visible_rows %}
+    {% for r in visible_rows %}
       <article class="expense-card" id="expense-{{ r.id }}" data-payment-id="{{ r.id }}">
         <div class="expense-top">
-          <div><h3>🧾 {{ r.description }}</h3><p>🏷️ {{ r.category or '(sem categoria)' }}</p></div>
+          <div><h3 class="expense-description">🧾 {{ r.description }}</h3><p class="expense-category">🏷️ {{ r.category or '(sem categoria)' }}</p></div>
           <span class="badge {{ 'paid' if r.paid else 'open' }}" id="badge-{{ r.id }}">{{ '✅ Pago' if r.paid else '🕓 Em aberto' }}</span>
         </div>
 
         <div class="expense-middle">
-          <strong>{{ r.amount | brl }}</strong>
-          <span>Compra: {{ r.purchase_date | datebr }}</span>
-          <span>Venc: {{ r.due_date | datebr }}</span>
+          <strong class="expense-amount">{{ r.amount | brl }}</strong>
+          <span class="expense-purchase-date">Compra: {{ r.purchase_date | datebr }}</span>
+          <span class="expense-due-date">Venc: {{ r.due_date | datebr }}</span>
         </div>
 
         <div class="expense-actions">
@@ -143,10 +129,10 @@
 
           <button type="button" class="edit-expense-button" onclick="toggleEdit('edit-{{ r.id }}', this)">✏️ Editar despesa</button>
 
-          <form method="post" action="/despesas/{{ r.id }}/delete" onsubmit="return confirm('Excluir esta despesa?')">
+          <form method="post" action="/despesas/{{ r.id }}/delete" class="ajax-delete-form" data-ajax="true" data-payment-id="{{ r.id }}" data-confirm="Excluir esta despesa?">
             <input type="hidden" name="month" value="{{ month }}">
             <input type="hidden" name="year" value="{{ year }}">
-            <button class="danger">Excluir</button>
+            <button class="danger" type="submit">Excluir</button>
           </form>
         </div>
 
@@ -184,7 +170,7 @@
         </details>
         {% endif %}
 
-        <form id="edit-{{ r.id }}" class="edit-form" method="post" action="/despesas/{{ r.id }}/edit">
+        <form id="edit-{{ r.id }}" class="edit-form ajax-edit-form" method="post" action="/despesas/{{ r.id }}/edit" data-ajax="true" data-payment-id="{{ r.id }}">
           <input type="hidden" name="month" value="{{ month }}">
           <input type="hidden" name="year" value="{{ year }}">
 
@@ -196,10 +182,8 @@
           <button>Salvar</button>
         </form>
       </article>
-      {% endfor %}
-    {% else %}
-      <div class="empty" id="expenseListEmpty">Nenhuma despesa cadastrada ou visível nesse filtro.</div>
-    {% endif %}
+    {% endfor %}
+    <div class="empty" id="expenseListEmpty" {% if visible_rows %}hidden{% endif %}>Nenhuma despesa cadastrada ou visível nesse filtro.</div>
     <div class="empty search-empty" id="expenseSearchEmpty" hidden>Nenhuma despesa encontrada para essa busca.</div>
   </div>
 </section>
@@ -316,7 +300,7 @@ function filterExpenseCards(options = {}) {
   if (elements.clearButton) elements.clearButton.hidden = !active;
   if (elements.status) elements.status.textContent = '';
   if (elements.empty) elements.empty.hidden = !active || found > 0;
-  if (elements.defaultEmpty) elements.defaultEmpty.hidden = active;
+  if (elements.defaultEmpty) elements.defaultEmpty.hidden = active || cards.length > 0;
 
   if (elements.resultBar) elements.resultBar.hidden = !active;
   if (elements.resultText) {
@@ -394,14 +378,71 @@ function updatePaymentCard(paymentId, paid) {
 
 function updatePageTotals(data) {
   if (data.metrics) {
+    const totalMetric = document.getElementById('metricTotal');
     const paidMetric = document.getElementById('metricPaid');
     const openMetric = document.getElementById('metricOpen');
+    const balanceMetric = document.getElementById('metricBalance');
+
+    if (totalMetric && data.metrics.total) totalMetric.textContent = data.metrics.total;
     if (paidMetric && data.metrics.pago) paidMetric.textContent = data.metrics.pago;
     if (openMetric && data.metrics.aberto) openMetric.textContent = data.metrics.aberto;
+    if (balanceMetric && data.metrics.saldo) balanceMetric.textContent = data.metrics.saldo;
   }
 
   const invoiceTotal = document.getElementById('invoiceOpenTotal');
   if (invoiceTotal && data.invoice_open_total) invoiceTotal.textContent = data.invoice_open_total;
+}
+
+function updateExpenseCardFromEdit(form, payment) {
+  const card = form.closest('.expense-card');
+  if (!card || !payment) return;
+
+  const description = card.querySelector('.expense-description');
+  const category = card.querySelector('.expense-category');
+  const amount = card.querySelector('.expense-amount');
+  const purchaseDate = card.querySelector('.expense-purchase-date');
+  const dueDate = card.querySelector('.expense-due-date');
+
+  if (description) description.textContent = `🧾 ${payment.description || ''}`;
+  if (category) category.textContent = `🏷️ ${payment.category || '(sem categoria)'}`;
+  if (amount) amount.textContent = payment.amount_formatted || formatBrl(payment.amount);
+  if (purchaseDate) purchaseDate.textContent = `Compra: ${payment.purchase_date_formatted || ''}`;
+  if (dueDate) dueDate.textContent = `Venc: ${payment.due_date_formatted || ''}`;
+
+  const categorySelect = form.querySelector('select[name="category_id"]');
+  if (categorySelect) {
+    categorySelect.value = payment.category_id == null ? '' : String(payment.category_id);
+  }
+
+  form.classList.remove('open');
+  const editButton = card.querySelector('.edit-expense-button');
+  if (editButton) {
+    editButton.textContent = '✏️ Editar despesa';
+    editButton.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function removeExpenseCardWithoutJump(card) {
+  if (!card) return;
+
+  const cards = Array.from(document.querySelectorAll('.expense-card'));
+  const index = cards.indexOf(card);
+  const nextCard = index >= 0 ? cards[index + 1] : null;
+  const nextTopBefore = nextCard ? nextCard.getBoundingClientRect().top : null;
+  const scrollBefore = window.scrollY;
+
+  card.remove();
+
+  window.requestAnimationFrame(function () {
+    if (nextCard && document.body.contains(nextCard) && nextTopBefore !== null) {
+      const difference = nextCard.getBoundingClientRect().top - nextTopBefore;
+      if (Math.abs(difference) > 1) window.scrollBy(0, difference);
+      return;
+    }
+
+    const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    window.scrollTo(0, Math.min(scrollBefore, maxScroll));
+  });
 }
 
 function setInvoicePanel(panelId, triggerId, open) {
@@ -414,32 +455,14 @@ function setInvoicePanel(panelId, triggerId, open) {
   trigger.classList.toggle('active', open);
 }
 
-function setInvoiceMobileOptions(open) {
-  const panel = document.getElementById('invoiceSecondaryActions');
-  const trigger = document.getElementById('toggleInvoiceMobileOptions');
-  if (!panel || !trigger) return;
-
-  panel.classList.toggle('mobile-open', open);
-  trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
-}
-
 function closeInvoicePanels() {
   setInvoicePanel('invoicePayOptions', 'toggleInvoicePayOptions', false);
   setInvoicePanel('invoiceUndoOptions', 'toggleInvoiceUndoOptions', false);
 }
 
 function initializeInvoiceControls() {
-  const mobileTrigger = document.getElementById('toggleInvoiceMobileOptions');
   const payTrigger = document.getElementById('toggleInvoicePayOptions');
   const undoTrigger = document.getElementById('toggleInvoiceUndoOptions');
-
-  if (mobileTrigger) {
-    mobileTrigger.addEventListener('click', function () {
-      const shouldOpen = mobileTrigger.getAttribute('aria-expanded') !== 'true';
-      setInvoiceMobileOptions(shouldOpen);
-      if (!shouldOpen) closeInvoicePanels();
-    });
-  }
 
   if (payTrigger) {
     payTrigger.addEventListener('click', function () {
@@ -496,16 +519,20 @@ function applyInvoiceState(data) {
   const paidValue = Number(data.invoice_paid_total_value || 0);
   const options = Array.isArray(data.invoice_options) ? data.invoice_options : [];
 
+  const invoiceCard = document.getElementById('invoiceCard');
   const payAllButton = document.getElementById('invoicePayAllButton');
-  const mobileTrigger = document.getElementById('toggleInvoiceMobileOptions');
   const payTrigger = document.getElementById('toggleInvoicePayOptions');
   const undoTrigger = document.getElementById('toggleInvoiceUndoOptions');
   const complete = document.getElementById('invoiceComplete');
   const paySelect = document.getElementById('invoicePayCategory');
   const undoSelect = document.getElementById('invoiceUndoCategory');
 
+  const hasInvoiceRows = options.some(function (option) {
+    return Number(option.open_total || 0) > 0 || Number(option.paid_total || 0) > 0;
+  });
+
+  if (invoiceCard) invoiceCard.hidden = !hasInvoiceRows;
   if (payAllButton) payAllButton.hidden = openValue <= 0;
-  if (mobileTrigger) mobileTrigger.hidden = openValue <= 0 && paidValue <= 0;
   if (payTrigger) payTrigger.hidden = openValue <= 0;
   if (undoTrigger) undoTrigger.hidden = paidValue <= 0;
   if (complete) complete.hidden = openValue > 0;
@@ -514,7 +541,6 @@ function applyInvoiceState(data) {
   populateInvoiceSelect(undoSelect, options, 'undo', paidValue);
 
   if (openValue <= 0 || paidValue <= 0) closeInvoicePanels();
-  if (openValue <= 0 && paidValue <= 0) setInvoiceMobileOptions(false);
 }
 
 async function submitAjaxForm(form) {
@@ -570,6 +596,30 @@ document.addEventListener('submit', async function (event) {
       updatePageTotals(data);
       applyInvoiceState(data);
       showQuickToast(data.message || 'Despesa atualizada.');
+      return;
+    }
+
+    if (form.classList.contains('ajax-edit-form')) {
+      const data = await submitAjaxForm(form);
+      updateExpenseCardFromEdit(form, data.payment);
+      updatePageTotals(data);
+      applyInvoiceState(data);
+      filterExpenseCards({ scroll: false });
+      showQuickToast(data.message || 'Despesa atualizada com sucesso.');
+      return;
+    }
+
+    if (form.classList.contains('ajax-delete-form')) {
+      const confirmation = form.dataset.confirm || 'Excluir esta despesa?';
+      if (!window.confirm(confirmation)) return;
+
+      const card = form.closest('.expense-card');
+      const data = await submitAjaxForm(form);
+      removeExpenseCardWithoutJump(card);
+      updatePageTotals(data);
+      applyInvoiceState(data);
+      filterExpenseCards({ scroll: false });
+      showQuickToast(data.message || 'Despesa excluída.');
       return;
     }
 
