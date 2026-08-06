@@ -1,5 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+  /* O botão Editar volta ao mesmo visual neutro dos demais botões da despesa. */
+  .expense-actions .edit-expense-button,
+  .expense-actions .edit-expense-button:hover {
+    background: rgba(255,255,255,.06) !important;
+    border: 1px solid rgba(255,255,255,.10) !important;
+    color: #fff !important;
+  }
+</style>
 <section class="panel">
   <div class="panel-head">
     <div><h2>🧾 Despesas</h2><p>Cadastre, edite, pague e exporte suas despesas.</p></div>
@@ -127,7 +136,7 @@
             <button type="submit" class="pay-toggle-button">{{ 'Desfazer' if r.paid else 'Pagar' }}</button>
           </form>
 
-          <button type="button" class="edit-expense-button" onclick="toggleEdit('edit-{{ r.id }}', this)">✏️ Editar despesa</button>
+          <button type="button" class="edit-expense-button" onclick="toggleEdit('edit-{{ r.id }}', this)">Editar</button>
 
           <form method="post" action="/despesas/{{ r.id }}/delete" class="ajax-delete-form" data-ajax="true" data-payment-id="{{ r.id }}" data-confirm="Excluir esta despesa?">
             <input type="hidden" name="month" value="{{ month }}">
@@ -197,7 +206,7 @@ function toggleEdit(id, button) {
 
   const isOpen = el.classList.toggle('open');
   if (button) {
-    button.textContent = isOpen ? '✕ Fechar edição' : '✏️ Editar despesa';
+    button.textContent = isOpen ? 'Fechar edição' : 'Editar';
     button.setAttribute('aria-expanded', String(isOpen));
   }
 
@@ -417,7 +426,7 @@ function updateExpenseCardFromEdit(form, payment) {
   form.classList.remove('open');
   const editButton = card.querySelector('.edit-expense-button');
   if (editButton) {
-    editButton.textContent = '✏️ Editar despesa';
+    editButton.textContent = 'Editar';
     editButton.setAttribute('aria-expanded', 'false');
   }
 }
