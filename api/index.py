@@ -386,7 +386,9 @@ def despesas(
     card_cat_ids = [r["id"] for r in card_categories]
     credit_rows = [r for r in ctx["rows"] if r.get("category_id") in card_cat_ids]
     open_credit = [r for r in credit_rows if not parse_bool(r.get("paid"))]
+    paid_credit = [r for r in credit_rows if parse_bool(r.get("paid"))]
     total_fatura = sum(float(r.get("amount") or 0) for r in open_credit)
+    total_fatura_paga = sum(float(r.get("amount") or 0) for r in paid_credit)
 
     invoice_options = []
     for category in card_categories:
@@ -425,7 +427,9 @@ def despesas(
         "visible_rows": visible_rows,
         "credit_rows": credit_rows,
         "open_credit": open_credit,
+        "paid_credit": paid_credit,
         "total_fatura": total_fatura,
+        "total_fatura_paga": total_fatura_paga,
         "invoice_options": invoice_options,
     })
     return templates.TemplateResponse(request, "despesas.html", ctx)
@@ -496,10 +500,23 @@ def toggle_paid(request: Request, payment_id: int, paid: int = Form(1), month: i
             },
             "invoice_open_total": fmt_brl(result.get("credit_open_total") or 0),
             "invoice_open_total_value": float(result.get("credit_open_total") or 0),
+            "invoice_paid_total": fmt_brl(result.get("credit_paid_total") or 0),
+            "invoice_paid_total_value": float(result.get("credit_paid_total") or 0),
+            "invoice_options": [
+                {
+                    "id": option.get("id"),
+                    "name": option.get("name"),
+                    "open_total": float(option.get("open_total") or 0),
+                    "paid_total": float(option.get("paid_total") or 0),
+                }
+                for option in (result.get("invoice_options") or [])
+            ],
             "category_id": result.get("category_id"),
             "category_name": result.get("category_name"),
             "category_open_total": fmt_brl(result.get("category_open_total") or 0),
             "category_open_total_value": float(result.get("category_open_total") or 0),
+            "category_paid_total": fmt_brl(result.get("category_paid_total") or 0),
+            "category_paid_total_value": float(result.get("category_paid_total") or 0),
             "is_card_category": bool(result.get("is_card_category")),
             "message": "Despesa atualizada.",
         })
@@ -591,6 +608,17 @@ def pay_credit(
             },
             "invoice_open_total": fmt_brl(result.get("credit_open_total") or 0),
             "invoice_open_total_value": float(result.get("credit_open_total") or 0),
+            "invoice_paid_total": fmt_brl(result.get("credit_paid_total") or 0),
+            "invoice_paid_total_value": float(result.get("credit_paid_total") or 0),
+            "invoice_options": [
+                {
+                    "id": option.get("id"),
+                    "name": option.get("name"),
+                    "open_total": float(option.get("open_total") or 0),
+                    "paid_total": float(option.get("paid_total") or 0),
+                }
+                for option in (result.get("invoice_options") or [])
+            ],
             "category_open_total": fmt_brl(result.get("category_open_total") or 0),
             "category_open_total_value": float(result.get("category_open_total") or 0),
             "is_card_category": True,
@@ -602,15 +630,72 @@ def pay_credit(
 
 
 @app.post("/despesas/credit/unpay")
-def unpay_credit(request: Request, month: int = Form(...), year: int = Form(...)):
+def unpay_credit(
+    request: Request,
+    month: int = Form(...),
+    year: int = Form(...),
+    category_id: str = Form("all"),
+):
     user = require_login(request)
     if not user:
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": "Sessão expirada."}, status_code=401)
         return redirect("/")
 
     if bool(user.get("is_superuser")):
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": "Ação não permitida."}, status_code=403)
         return redirect("/admin/usuarios")
 
-    repos.unmark_credit_invoice_paid(user["id"], month, year)
+    try:
+        selected_value = str(category_id or "all").strip().lower()
+        if selected_value in {"", "all", "todos", "0"}:
+            selected_category_id = None
+        elif selected_value.isdigit():
+            selected_category_id = int(selected_value)
+        else:
+            raise ValueError("Selecione uma opção de fatura válida.")
+
+        result = repos.unmark_credit_invoice_paid_with_summary(
+            user["id"], month, year, category_id=selected_category_id
+        )
+    except ValueError as exc:
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+        return redirect(f"/despesas?month={month}&year={year}&err={str(exc)}")
+
+    if wants_json(request):
+        return JSONResponse({
+            "ok": True,
+            "updated_ids": result.get("updated_ids") or [],
+            "category_id": result.get("category_id"),
+            "category_name": result.get("category_name") or "Fatura",
+            "metrics": {
+                "pago": fmt_brl(result.get("paid_total") or 0),
+                "aberto": fmt_brl(result.get("open_total") or 0),
+            },
+            "invoice_open_total": fmt_brl(result.get("credit_open_total") or 0),
+            "invoice_open_total_value": float(result.get("credit_open_total") or 0),
+            "invoice_paid_total": fmt_brl(result.get("credit_paid_total") or 0),
+            "invoice_paid_total_value": float(result.get("credit_paid_total") or 0),
+            "invoice_options": [
+                {
+                    "id": option.get("id"),
+                    "name": option.get("name"),
+                    "open_total": float(option.get("open_total") or 0),
+                    "paid_total": float(option.get("paid_total") or 0),
+                }
+                for option in (result.get("invoice_options") or [])
+            ],
+            "category_open_total": fmt_brl(result.get("category_open_total") or 0),
+            "category_open_total_value": float(result.get("category_open_total") or 0),
+            "category_paid_total": fmt_brl(result.get("category_paid_total") or 0),
+            "category_paid_total_value": float(result.get("category_paid_total") or 0),
+            "is_card_category": True,
+            "undo_all": selected_category_id is None,
+            "message": "Pagamento da fatura desfeito.",
+        })
+
     return redirect(f"/despesas?month={month}&year={year}&msg=Pagamento da fatura desfeito.")
 
 
