@@ -835,6 +835,33 @@ def add_categoria(request: Request, name: str = Form(""), month: int = Form(...)
     return redirect(f"/categorias?month={month}&year={year}&msg=Categoria cadastrada.")
 
 
+@app.post("/categorias/{category_id}/edit")
+def edit_categoria(
+    request: Request,
+    category_id: int,
+    name: str = Form(""),
+    month: int = Form(...),
+    year: int = Form(...),
+):
+    user = require_login(request)
+    if not user:
+        return redirect("/")
+
+    if bool(user.get("is_superuser")):
+        return redirect("/admin/usuarios")
+
+    clean_name = name.strip()
+    if not clean_name:
+        return redirect(
+            f"/categorias?month={month}&year={year}&err=Informe o nome da categoria."
+        )
+
+    repos.update_category(user["id"], category_id, clean_name)
+    return redirect(
+        f"/categorias?month={month}&year={year}&msg=Categoria atualizada."
+    )
+
+
 @app.post("/categorias/{category_id}/delete")
 def delete_categoria(request: Request, category_id: int, month: int = Form(...), year: int = Form(...)):
     user = require_login(request)
