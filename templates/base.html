@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Controle Financeiro</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v=20260806-3">
 </head>
 <body class="app-body" id="appBody">
 
@@ -73,10 +73,10 @@
     {% if err %}<div class="alert error">{{ err }}</div>{% endif %}
 
     <section class="metrics">
-      <div class="metric-card"><span>Total do mês</span><strong>{{ total | brl }}</strong></div>
-      <div class="metric-card"><span>Pago</span><strong>{{ pago | brl }}</strong></div>
-      <div class="metric-card"><span>Em aberto</span><strong>{{ aberto | brl }}</strong></div>
-      <div class="metric-card"><span>Saldo</span><strong>{{ saldo | brl }}</strong></div>
+      <div class="metric-card"><span>Total do mês</span><strong id="metricTotal">{{ total | brl }}</strong></div>
+      <div class="metric-card"><span>Pago</span><strong id="metricPaid">{{ pago | brl }}</strong></div>
+      <div class="metric-card"><span>Em aberto</span><strong id="metricOpen">{{ aberto | brl }}</strong></div>
+      <div class="metric-card"><span>Saldo</span><strong id="metricBalance">{{ saldo | brl }}</strong></div>
     </section>
 
     {% block content %}{% endblock %}
@@ -117,7 +117,11 @@
 
     document.addEventListener("submit", function (event) {
       const form = event.target;
-      if (!(form instanceof HTMLFormElement) || form.method.toLowerCase() !== "post") {
+      if (
+        !(form instanceof HTMLFormElement)
+        || form.method.toLowerCase() !== "post"
+        || form.dataset.ajax === "true"
+      ) {
         return;
       }
 
