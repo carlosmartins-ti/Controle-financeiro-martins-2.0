@@ -123,24 +123,6 @@ def create_category(user_id, name):
     conn.close()
 
 
-def update_category(user_id, category_id, name):
-    conn = get_connection()
-    cur = conn.cursor()
-
-    try:
-        cur.execute(
-            "UPDATE categories SET name = %s WHERE id = %s AND user_id = %s",
-            (name, category_id, user_id)
-        )
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        cur.close()
-        conn.close()
-
-
 def delete_category(user_id, category_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -421,7 +403,15 @@ def _get_period_payment_totals(conn, user_id, month, year):
                     THEN p.amount
                     ELSE 0
                 END
-            ), 0) AS credit_open_total
+            ), 0) AS credit_open_total,
+            COALESCE((
+                SELECT b.income
+                FROM budgets b
+                WHERE b.user_id = %s
+                  AND b.month = %s
+                  AND b.year = %s
+                LIMIT 1
+            ), 0) AS income
         FROM payments p
         LEFT JOIN categories c
           ON c.id = p.category_id
@@ -430,7 +420,7 @@ def _get_period_payment_totals(conn, user_id, month, year):
           AND p.month = %s
           AND p.year = %s
         """,
-        ('%cart%', user_id, month, year),
+        ('%cart%', user_id, month, year, user_id, month, year),
     )
     row = cur.fetchone() or {}
     cur.close()
@@ -583,43 +573,136 @@ def mark_paid_with_summary(user_id, payment_id, paid, month, year):
         conn.close()
 
 
-def update_payment(user_id, payment_id, description, amount, purchase_date, due_date, category_id):
+def update_payment(
+    user_id,
+    payment_id,
+    description,
+    amount,
+    purchase_date,
+    due_date,
+    category_id,
+    month=None,
+    year=None,
+):
+    """Edita uma despesa e, quando informado o período, devolve o resumo atualizado."""
     conn = get_connection()
+    conn.autocommit = False
     cur = conn.cursor()
 
-    purchase_dt = datetime.fromisoformat(str(purchase_date)).date() if purchase_date else None
+    try:
+        purchase_dt = (
+            datetime.fromisoformat(str(purchase_date)).date()
+            if purchase_date else None
+        )
+        due_dt = (
+            datetime.fromisoformat(str(due_date)).date()
+            if due_date else None
+        )
 
-    cur.execute(
-        """
-        UPDATE payments
-        SET description = %s,
-            amount = %s,
-            purchase_date = %s,
-            due_date = %s,
-            category_id = %s
-        WHERE id = %s
-        AND user_id = %s
-        """,
-        (description, amount, purchase_dt, due_date, category_id, payment_id, user_id)
-    )
+        cur.execute(
+            """
+            UPDATE payments
+            SET description = %s,
+                amount = %s,
+                purchase_date = %s,
+                due_date = %s,
+                category_id = %s
+            WHERE id = %s
+              AND user_id = %s
+            RETURNING id, description, amount, purchase_date, due_date,
+                      category_id, paid
+            """,
+            (
+                description,
+                amount,
+                purchase_dt,
+                due_dt,
+                category_id,
+                payment_id,
+                user_id,
+            ),
+        )
+        payment = cur.fetchone()
+        if not payment:
+            raise ValueError("Despesa não encontrada.")
 
-    conn.commit()
-    cur.close()
-    conn.close()
+        cur.execute(
+            """
+            SELECT p.id, p.description, p.amount, p.purchase_date, p.due_date,
+                   p.category_id, p.paid, c.name AS category
+            FROM payments p
+            LEFT JOIN categories c
+              ON c.id = p.category_id
+             AND c.user_id = p.user_id
+            WHERE p.id = %s
+              AND p.user_id = %s
+            """,
+            (payment_id, user_id),
+        )
+        payment = cur.fetchone() or payment
+
+        result = {"payment": payment}
+        if month is not None and year is not None:
+            result.update(_get_period_payment_totals(conn, user_id, month, year))
+            result.update(
+                _get_category_payment_state(
+                    conn, user_id, month, year, payment.get("category_id")
+                )
+            )
+            result.update(_get_credit_invoice_state(conn, user_id, month, year))
+
+        conn.commit()
+        return result
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
 
 
-def delete_payment(user_id, payment_id):
+def delete_payment(user_id, payment_id, month=None, year=None):
+    """Exclui uma despesa e, quando informado o período, devolve o resumo atualizado."""
     conn = get_connection()
+    conn.autocommit = False
     cur = conn.cursor()
 
-    cur.execute(
-        "DELETE FROM payments WHERE id = %s AND user_id = %s",
-        (payment_id, user_id)
-    )
+    try:
+        cur.execute(
+            """
+            DELETE FROM payments
+            WHERE id = %s
+              AND user_id = %s
+            RETURNING id, category_id, paid
+            """,
+            (payment_id, user_id),
+        )
+        deleted = cur.fetchone()
+        if not deleted:
+            raise ValueError("Despesa não encontrada.")
 
-    conn.commit()
-    cur.close()
-    conn.close()
+        result = {
+            "deleted_id": deleted.get("id"),
+            "category_id": deleted.get("category_id"),
+            "paid": bool(deleted.get("paid")),
+        }
+        if month is not None and year is not None:
+            result.update(_get_period_payment_totals(conn, user_id, month, year))
+            result.update(
+                _get_category_payment_state(
+                    conn, user_id, month, year, deleted.get("category_id")
+                )
+            )
+            result.update(_get_credit_invoice_state(conn, user_id, month, year))
+
+        conn.commit()
+        return result
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
 
 
 # ================= BUDGET =================
