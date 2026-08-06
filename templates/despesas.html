@@ -116,7 +116,7 @@
       <button type="button" id="undoExpenseSearch">✕ Desfazer pesquisa</button>
     </div>
     {% for r in visible_rows %}
-      <article class="expense-card" id="expense-{{ r.id }}" data-payment-id="{{ r.id }}">
+      <article class="expense-card" id="expense-{{ r.id }}" data-payment-id="{{ r.id }}" data-credit-group="{{ r.credit_group or '' }}">
         <div class="expense-top">
           <div><h3 class="expense-description">🧾 {{ r.description }}</h3><p class="expense-category">🏷️ {{ r.category or '(sem categoria)' }}</p></div>
           <span class="badge {{ 'paid' if r.paid else 'open' }}" id="badge-{{ r.id }}">{{ '✅ Pago' if r.paid else '🕓 Em aberto' }}</span>
@@ -149,7 +149,7 @@
         <details class="parcel-box">
           <summary>🧩 Compra parcelada</summary>
 
-          <form method="post" action="/despesas/credit/update-installments" class="parcel-edit-form" onsubmit="return confirm('Atualizar a quantidade de parcelas desta compra?')">
+          <form method="post" action="/despesas/credit/update-installments" class="parcel-edit-form ajax-parcel-update-form" data-ajax="true" data-credit-group="{{ r.credit_group }}" data-confirm="Atualizar a quantidade de parcelas desta compra?">
             <input type="hidden" name="credit_group" value="{{ r.credit_group }}">
             <input type="hidden" name="month" value="{{ month }}">
             <input type="hidden" name="year" value="{{ year }}">
@@ -157,7 +157,7 @@
             <label>Quantidade de parcelas</label>
             <div class="parcel-edit-line">
               <input type="number" name="new_installments" min="1" value="{{ r.installments or 1 }}" required>
-              <button type="submit">Atualizar parcelas</button>
+              <button type="submit" data-loading-text="Atualizando...">Atualizar parcelas</button>
             </div>
           </form>
 
@@ -555,10 +555,11 @@ function applyInvoiceState(data) {
 async function submitAjaxForm(form) {
   const button = form.querySelector('button[type="submit"], button:not([type])');
   const originalText = button ? button.textContent : '';
+  const loadingText = button ? (button.dataset.loadingText || 'Salvando...') : '';
 
   if (button) {
     button.disabled = true;
-    button.textContent = 'Salvando...';
+    button.textContent = loadingText;
   }
 
   try {
@@ -583,6 +584,105 @@ async function submitAjaxForm(form) {
       button.textContent = originalText;
     }
   }
+}
+
+function getExpensesRefreshUrl(form) {
+  const monthInput = form.querySelector('input[name="month"]');
+  const yearInput = form.querySelector('input[name="year"]');
+  const currentUrl = new URL(window.location.href);
+  const month = monthInput ? monthInput.value : currentUrl.searchParams.get('month');
+  const year = yearInput ? yearInput.value : currentUrl.searchParams.get('year');
+  const hidePaid = currentUrl.searchParams.get('hide_paid') || '0';
+  const url = new URL('/despesas', window.location.origin);
+
+  if (month) url.searchParams.set('month', month);
+  if (year) url.searchParams.set('year', year);
+  url.searchParams.set('hide_paid', hidePaid);
+  return url.toString();
+}
+
+function copyMetricFromDocument(documentSource, metricId) {
+  const currentMetric = document.getElementById(metricId);
+  const refreshedMetric = documentSource.getElementById(metricId);
+  if (currentMetric && refreshedMetric) {
+    currentMetric.textContent = refreshedMetric.textContent;
+  }
+}
+
+async function refreshExpensesAfterParcelUpdate(form) {
+  const currentCard = form.closest('.expense-card');
+  const paymentId = currentCard ? currentCard.dataset.paymentId : '';
+  const creditGroup = form.dataset.creditGroup || '';
+  const cardTopBefore = currentCard ? currentCard.getBoundingClientRect().top : null;
+  const scrollBefore = window.scrollY;
+  const parcelWasOpen = Boolean(form.closest('.parcel-box')?.open);
+
+  const response = await fetch(getExpensesRefreshUrl(form), {
+    method: 'GET',
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+      'Accept': 'text/html'
+    },
+    cache: 'no-store'
+  });
+
+  if (!response.ok) {
+    throw new Error('As parcelas foram atualizadas, mas não foi possível atualizar a tela.');
+  }
+
+  const html = await response.text();
+  const refreshedDocument = new DOMParser().parseFromString(html, 'text/html');
+  const currentList = document.getElementById('expenseList');
+  const refreshedList = refreshedDocument.getElementById('expenseList');
+
+  if (!currentList || !refreshedList) {
+    throw new Error('As parcelas foram atualizadas, mas a lista não pôde ser recarregada.');
+  }
+
+  const currentInvoice = document.getElementById('invoiceCard');
+  const refreshedInvoice = refreshedDocument.getElementById('invoiceCard');
+
+  currentList.replaceWith(refreshedList);
+
+  if (currentInvoice && refreshedInvoice) {
+    currentInvoice.replaceWith(refreshedInvoice);
+  } else if (currentInvoice && !refreshedInvoice) {
+    currentInvoice.remove();
+  } else if (!currentInvoice && refreshedInvoice) {
+    const addBox = document.querySelector('.add-box');
+    if (addBox) addBox.before(refreshedInvoice);
+  }
+
+  ['metricTotal', 'metricPaid', 'metricOpen', 'metricBalance'].forEach(function (metricId) {
+    copyMetricFromDocument(refreshedDocument, metricId);
+  });
+
+  initializeInvoiceControls();
+  filterExpenseCards({ scroll: false });
+
+  let refreshedCard = paymentId
+    ? document.querySelector(`.expense-card[data-payment-id="${paymentId}"]`)
+    : null;
+
+  if (!refreshedCard && creditGroup) {
+    refreshedCard = document.querySelector(`.expense-card[data-credit-group="${creditGroup}"]`);
+  }
+
+  if (parcelWasOpen && refreshedCard) {
+    const refreshedParcelBox = refreshedCard.querySelector('.parcel-box');
+    if (refreshedParcelBox) refreshedParcelBox.open = true;
+  }
+
+  window.requestAnimationFrame(function () {
+    if (refreshedCard && cardTopBefore !== null) {
+      const difference = refreshedCard.getBoundingClientRect().top - cardTopBefore;
+      if (Math.abs(difference) > 1) window.scrollBy(0, difference);
+      return;
+    }
+
+    const maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    window.scrollTo(0, Math.min(scrollBefore, maxScroll));
+  });
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -629,6 +729,16 @@ document.addEventListener('submit', async function (event) {
       applyInvoiceState(data);
       filterExpenseCards({ scroll: false });
       showQuickToast(data.message || 'Despesa excluída.');
+      return;
+    }
+
+    if (form.classList.contains('ajax-parcel-update-form')) {
+      const confirmation = form.dataset.confirm || 'Atualizar a quantidade de parcelas desta compra?';
+      if (!window.confirm(confirmation)) return;
+
+      const data = await submitAjaxForm(form);
+      await refreshExpensesAfterParcelUpdate(form);
+      showQuickToast(data.message || 'Parcelas atualizadas com sucesso.');
       return;
     }
 
