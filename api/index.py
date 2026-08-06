@@ -3,7 +3,7 @@ from datetime import date, datetime
 from io import BytesIO
 
 from fastapi import FastAPI, Request, Form, Query
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -113,6 +113,13 @@ def require_superuser(request: Request):
 
 def redirect(path: str):
     return RedirectResponse(path, status_code=303)
+
+
+def wants_json(request: Request):
+    return (
+        request.headers.get("x-requested-with", "").lower() == "xmlhttprequest"
+        or "application/json" in request.headers.get("accept", "").lower()
+    )
 
 
 def month_year_defaults(month: int | None, year: int | None):
@@ -372,10 +379,43 @@ def despesas(
         request, user, month, year, "despesas", include_categories=True
     )
     cats = ctx["categories"] or []
-    card_cat_ids = [r["id"] for r in cats if r.get("name") and "cart" in str(r.get("name")).lower()]
+    card_categories = [
+        r for r in cats
+        if r.get("name") and "cart" in str(r.get("name")).lower()
+    ]
+    card_cat_ids = [r["id"] for r in card_categories]
     credit_rows = [r for r in ctx["rows"] if r.get("category_id") in card_cat_ids]
     open_credit = [r for r in credit_rows if not parse_bool(r.get("paid"))]
     total_fatura = sum(float(r.get("amount") or 0) for r in open_credit)
+
+    invoice_options = []
+    for category in card_categories:
+        category_rows = [
+            r for r in credit_rows if r.get("category_id") == category.get("id")
+        ]
+        if not category_rows:
+            continue
+
+        open_total = sum(
+            float(r.get("amount") or 0)
+            for r in category_rows
+            if not parse_bool(r.get("paid"))
+        )
+        paid_total = sum(
+            float(r.get("amount") or 0)
+            for r in category_rows
+            if parse_bool(r.get("paid"))
+        )
+
+        invoice_options.append({
+            "id": category.get("id"),
+            "name": category.get("name"),
+            "open_total": open_total,
+            "paid_total": paid_total,
+            "has_open": open_total > 0,
+        })
+
+    invoice_options.sort(key=lambda item: str(item.get("name") or "").casefold())
     visible_rows = sorted(ctx["rows"], key=lambda r: (1 if parse_bool(r.get("paid")) else 0, str(r.get("due_date") or "")))
     if hide_paid:
         visible_rows = [r for r in visible_rows if not parse_bool(r.get("paid"))]
@@ -386,6 +426,7 @@ def despesas(
         "credit_rows": credit_rows,
         "open_credit": open_credit,
         "total_fatura": total_fatura,
+        "invoice_options": invoice_options,
     })
     return templates.TemplateResponse(request, "despesas.html", ctx)
 
@@ -426,12 +467,43 @@ def add_despesa(
 def toggle_paid(request: Request, payment_id: int, paid: int = Form(1), month: int = Form(...), year: int = Form(...)):
     user = require_login(request)
     if not user:
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": "Sessão expirada."}, status_code=401)
         return redirect("/")
 
     if bool(user.get("is_superuser")):
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": "Ação não permitida."}, status_code=403)
         return redirect("/admin/usuarios")
 
-    repos.mark_paid(user["id"], payment_id, bool(paid))
+    try:
+        result = repos.mark_paid_with_summary(
+            user["id"], payment_id, bool(paid), month, year
+        )
+    except ValueError as exc:
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=404)
+        return redirect(f"/despesas?month={month}&year={year}&err={str(exc)}")
+
+    if wants_json(request):
+        return JSONResponse({
+            "ok": True,
+            "payment_id": payment_id,
+            "paid": bool(paid),
+            "metrics": {
+                "pago": fmt_brl(result.get("paid_total") or 0),
+                "aberto": fmt_brl(result.get("open_total") or 0),
+            },
+            "invoice_open_total": fmt_brl(result.get("credit_open_total") or 0),
+            "invoice_open_total_value": float(result.get("credit_open_total") or 0),
+            "category_id": result.get("category_id"),
+            "category_name": result.get("category_name"),
+            "category_open_total": fmt_brl(result.get("category_open_total") or 0),
+            "category_open_total_value": float(result.get("category_open_total") or 0),
+            "is_card_category": bool(result.get("is_card_category")),
+            "message": "Despesa atualizada.",
+        })
+
     return redirect(f"/despesas?month={month}&year={year}&msg=Despesa atualizada.")
 
 
@@ -473,15 +545,59 @@ def edit_despesa(
 
 
 @app.post("/despesas/credit/pay")
-def pay_credit(request: Request, month: int = Form(...), year: int = Form(...)):
+def pay_credit(
+    request: Request,
+    month: int = Form(...),
+    year: int = Form(...),
+    category_id: str = Form("all"),
+):
     user = require_login(request)
     if not user:
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": "Sessão expirada."}, status_code=401)
         return redirect("/")
 
     if bool(user.get("is_superuser")):
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": "Ação não permitida."}, status_code=403)
         return redirect("/admin/usuarios")
 
-    repos.mark_credit_invoice_paid(user["id"], month, year)
+    try:
+        selected_value = str(category_id or "all").strip().lower()
+        if selected_value in {"", "all", "todos", "0"}:
+            selected_category_id = None
+        elif selected_value.isdigit():
+            selected_category_id = int(selected_value)
+        else:
+            raise ValueError("Selecione uma opção de fatura válida.")
+
+        result = repos.mark_credit_invoice_paid_with_summary(
+            user["id"], month, year, category_id=selected_category_id
+        )
+    except ValueError as exc:
+        if wants_json(request):
+            return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
+        return redirect(f"/despesas?month={month}&year={year}&err={str(exc)}")
+
+    if wants_json(request):
+        return JSONResponse({
+            "ok": True,
+            "updated_ids": result.get("updated_ids") or [],
+            "category_id": result.get("category_id"),
+            "category_name": result.get("category_name") or "Fatura",
+            "metrics": {
+                "pago": fmt_brl(result.get("paid_total") or 0),
+                "aberto": fmt_brl(result.get("open_total") or 0),
+            },
+            "invoice_open_total": fmt_brl(result.get("credit_open_total") or 0),
+            "invoice_open_total_value": float(result.get("credit_open_total") or 0),
+            "category_open_total": fmt_brl(result.get("category_open_total") or 0),
+            "category_open_total_value": float(result.get("category_open_total") or 0),
+            "is_card_category": True,
+            "pay_all": selected_category_id is None,
+            "message": "Fatura marcada como paga.",
+        })
+
     return redirect(f"/despesas?month={month}&year={year}&msg=Fatura marcada como paga.")
 
 
