@@ -2,15 +2,79 @@
 {% block content %}
 <section class="panel">
   <div class="panel-head"><div><h2>🏷️ Categorias</h2><p>Organize suas despesas por categoria.</p></div></div>
+
   <form class="simple-form" method="post" action="/categorias/add">
-    <input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="year" value="{{ year }}">
+    <input type="hidden" name="month" value="{{ month }}">
+    <input type="hidden" name="year" value="{{ year }}">
     <label>Nova categoria<input name="name" required></label>
     <button>Adicionar</button>
   </form>
+
   <div class="category-list">
     {% for c in categories %}
-    <div class="category-item"><span>{{ c.name }}</span><form method="post" action="/categorias/{{ c.id }}/delete" onsubmit="return confirm('Excluir categoria?')"><input type="hidden" name="month" value="{{ month }}"><input type="hidden" name="year" value="{{ year }}"><button>Excluir</button></form></div>
-    {% else %}<div class="empty">Nenhuma categoria cadastrada.</div>{% endfor %}
+    <div class="category-item">
+      <div class="category-item-main">
+        <span>{{ c.name }}</span>
+        <div class="category-actions">
+          <button
+            type="button"
+            class="category-edit-button"
+            onclick="toggleCategoryEdit('category-edit-{{ c.id }}', this)"
+            aria-expanded="false"
+          >✏️ Editar</button>
+
+          <form method="post" action="/categorias/{{ c.id }}/delete" onsubmit="return confirm('Excluir categoria?')">
+            <input type="hidden" name="month" value="{{ month }}">
+            <input type="hidden" name="year" value="{{ year }}">
+            <button class="category-delete-button">Excluir</button>
+          </form>
+        </div>
+      </div>
+
+      <form id="category-edit-{{ c.id }}" class="category-edit-form" method="post" action="/categorias/{{ c.id }}/edit">
+        <input type="hidden" name="month" value="{{ month }}">
+        <input type="hidden" name="year" value="{{ year }}">
+        <label>Nome da categoria<input name="name" value="{{ c.name }}" required></label>
+        <button type="submit">Salvar alteração</button>
+      </form>
+    </div>
+    {% else %}
+      <div class="empty">Nenhuma categoria cadastrada.</div>
+    {% endfor %}
   </div>
 </section>
+
+<script>
+function toggleCategoryEdit(id, button) {
+  const form = document.getElementById(id);
+  if (!form) return;
+
+  const opening = !form.classList.contains('open');
+
+  document.querySelectorAll('.category-edit-form.open').forEach(function (otherForm) {
+    if (otherForm === form) return;
+    otherForm.classList.remove('open');
+    const otherButton = document.querySelector('[onclick*="' + otherForm.id + '"]');
+    if (otherButton) {
+      otherButton.textContent = '✏️ Editar';
+      otherButton.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  form.classList.toggle('open', opening);
+  button.textContent = opening ? '✕ Fechar' : '✏️ Editar';
+  button.setAttribute('aria-expanded', String(opening));
+
+  if (opening) {
+    window.setTimeout(function () {
+      const input = form.querySelector('input[name="name"]');
+      form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (input) {
+        input.focus({ preventScroll: true });
+        input.select();
+      }
+    }, 80);
+  }
+}
+</script>
 {% endblock %}
