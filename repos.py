@@ -123,6 +123,24 @@ def create_category(user_id, name):
     conn.close()
 
 
+def update_category(user_id, category_id, name):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    try:
+        cur.execute(
+            "UPDATE categories SET name = %s WHERE id = %s AND user_id = %s",
+            (name, category_id, user_id)
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
+
+
 def delete_category(user_id, category_id):
     conn = get_connection()
     cur = conn.cursor()
