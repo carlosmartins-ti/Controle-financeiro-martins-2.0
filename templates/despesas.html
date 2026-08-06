@@ -128,7 +128,7 @@
             <button type="submit" class="pay-toggle-button">{{ 'Desfazer' if r.paid else 'Pagar' }}</button>
           </form>
 
-          <button type="button" onclick="toggleEdit('edit-{{ r.id }}')">Editar</button>
+          <button type="button" class="edit-expense-button" onclick="toggleEdit('edit-{{ r.id }}', this)">✏️ Editar despesa</button>
 
           <form method="post" action="/despesas/{{ r.id }}/delete" onsubmit="return confirm('Excluir esta despesa?')">
             <input type="hidden" name="month" value="{{ month }}">
@@ -194,9 +194,23 @@
 <div class="quick-toast" id="quickToast" role="status" aria-live="polite"></div>
 
 <script>
-function toggleEdit(id) {
+function toggleEdit(id, button) {
   const el = document.getElementById(id);
-  if (el) el.classList.toggle('open');
+  if (!el) return;
+
+  const isOpen = el.classList.toggle('open');
+  if (button) {
+    button.textContent = isOpen ? '✕ Fechar edição' : '✏️ Editar despesa';
+    button.setAttribute('aria-expanded', String(isOpen));
+  }
+
+  if (isOpen) {
+    window.setTimeout(function () {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const firstInput = el.querySelector('input:not([type="hidden"]), select');
+      if (firstInput) firstInput.focus({ preventScroll: true });
+    }, 80);
+  }
 }
 
 function showQuickToast(message, isError = false) {
@@ -210,7 +224,7 @@ function showQuickToast(message, isError = false) {
   window.clearTimeout(window.quickToastTimer);
   window.quickToastTimer = window.setTimeout(function () {
     toast.classList.remove('show');
-  }, 2500);
+  }, 4000);
 }
 
 function normalizeExpenseSearch(value) {
